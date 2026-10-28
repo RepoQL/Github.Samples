@@ -5,7 +5,7 @@ description: >
 
 inputs:
   agent:
-    description: The agent the review action used — `claude`, `codex`, or the path of your adapter.
+    description: The agent the review action used — `claude`, `codex`, `opencode`, or the path of your adapter.
     default: claude
   pr:
     description: The pull request number.

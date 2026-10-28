@@ -86,6 +86,19 @@ describe("the review action's own steps", () => {
     expect(readFileSync(log, "utf8")).toBe("nothing here\n");
   });
 
+  it("masks a secret in a binary file at its own length, so the file's structure survives", () => {
+    const file = join(directory, "opencode.db");
+    const secret = "sk-ant-dddddddddd";
+    const bytes = Buffer.concat([Buffer.from([0x53, 0x51, 0x00, 0xff, 0x01]), Buffer.from(`x${secret}y`), Buffer.from([0x00, 0xfe])]);
+    writeFileSync(file, bytes);
+    expect(job.redact([file], [secret])).toBe(1);
+    const after = readFileSync(file);
+    expect(after.length).toBe(bytes.length);
+    expect(after.includes(Buffer.from(secret))).toBe(false);
+    expect([...after.subarray(0, 5)]).toEqual([0x53, 0x51, 0x00, 0xff, 0x01]);
+    expect(after.subarray(5).toString("latin1")).toBe(`x${"*".repeat(secret.length)}y\u0000þ`);
+  });
+
   it("replaces a secret that contains another whole", () => {
     const file = join(directory, "events.jsonl");
     writeFileSync(file, "sk-ant-cccccccccc-longer");

@@ -8,8 +8,9 @@ description: >
 inputs:
   agent:
     description: >
-      The harness that reviews: `claude`, `codex`, or the path of an adapter
-      of your own in the checkout that takes the same commands (see the README).
+      The harness that reviews: `claude`, `codex`, `opencode` (opencode 2), or
+      the path of an adapter of your own in the checkout that takes the same
+      commands (see the README).
     default: claude
   model:
     description: The model to review with. Empty for the harness's default.

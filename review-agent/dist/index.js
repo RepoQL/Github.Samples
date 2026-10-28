@@ -26335,8 +26335,8 @@ var require_async = __commonJS({
             return callback(null, results);
           }
           while (readyTasks.length && runningTasks < concurrency) {
-            var run4 = readyTasks.shift();
-            run4();
+            var run5 = readyTasks.shift();
+            run5();
           }
         }
         function addListener(taskName, fn) {
@@ -28244,14 +28244,14 @@ var require_graceful_fs = __commonJS({
         return close;
       })(fs13.close);
       fs13.closeSync = (function(fs$closeSync) {
-        function closeSync6(fd) {
+        function closeSync7(fd) {
           fs$closeSync.apply(fs13, arguments);
           resetQueue();
         }
-        Object.defineProperty(closeSync6, previousSymbol, {
+        Object.defineProperty(closeSync7, previousSymbol, {
           value: fs$closeSync
         });
-        return closeSync6;
+        return closeSync7;
       })(fs13.closeSync);
       if (/\bgfs4\b/i.test(process.env.NODE_DEBUG || "")) {
         process.on("exit", function() {
@@ -28854,7 +28854,7 @@ var require_BufferList = __commonJS({
         this.head = this.tail = null;
         this.length = 0;
       };
-      BufferList.prototype.join = function join15(s) {
+      BufferList.prototype.join = function join16(s) {
         if (this.length === 0) return "";
         var p = this.head;
         var ret = "" + p.data;
@@ -32294,8 +32294,8 @@ var require_event_target_shim = __commonJS({
         }
         const listeners = getListeners(this);
         const optionsIsObj = isObject3(options);
-        const capture = optionsIsObj ? Boolean(options.capture) : Boolean(options);
-        const listenerType = capture ? CAPTURE : BUBBLE;
+        const capture2 = optionsIsObj ? Boolean(options.capture) : Boolean(options);
+        const listenerType = capture2 ? CAPTURE : BUBBLE;
         const newNode = {
           listener,
           listenerType,
@@ -32330,8 +32330,8 @@ var require_event_target_shim = __commonJS({
           return;
         }
         const listeners = getListeners(this);
-        const capture = isObject3(options) ? Boolean(options.capture) : Boolean(options);
-        const listenerType = capture ? CAPTURE : BUBBLE;
+        const capture2 = isObject3(options) ? Boolean(options.capture) : Boolean(options);
+        const listenerType = capture2 ? CAPTURE : BUBBLE;
         let prev = null;
         let node = listeners.get(eventName);
         while (node != null) {
@@ -59827,7 +59827,7 @@ var require_light = __commonJS({
           }
           return this.Events.trigger("scheduled", { args: this.args, options: this.options });
         }
-        async doExecute(chained, clearGlobalState, run4, free) {
+        async doExecute(chained, clearGlobalState, run5, free) {
           var error2, eventInfo, passed;
           if (this.retryCount === 0) {
             this._assertStatus("RUNNING");
@@ -59847,10 +59847,10 @@ var require_light = __commonJS({
             }
           } catch (error1) {
             error2 = error1;
-            return this._onFailure(error2, eventInfo, clearGlobalState, run4, free);
+            return this._onFailure(error2, eventInfo, clearGlobalState, run5, free);
           }
         }
-        doExpire(clearGlobalState, run4, free) {
+        doExpire(clearGlobalState, run5, free) {
           var error2, eventInfo;
           if (this._states.jobStatus(this.options.id === "RUNNING")) {
             this._states.next(this.options.id);
@@ -59858,9 +59858,9 @@ var require_light = __commonJS({
           this._assertStatus("EXECUTING");
           eventInfo = { args: this.args, options: this.options, retryCount: this.retryCount };
           error2 = new BottleneckError$1(`This job timed out after ${this.options.expiration} ms.`);
-          return this._onFailure(error2, eventInfo, clearGlobalState, run4, free);
+          return this._onFailure(error2, eventInfo, clearGlobalState, run5, free);
         }
-        async _onFailure(error2, eventInfo, clearGlobalState, run4, free) {
+        async _onFailure(error2, eventInfo, clearGlobalState, run5, free) {
           var retry3, retryAfter;
           if (clearGlobalState()) {
             retry3 = await this.Events.trigger("failed", error2, eventInfo);
@@ -59868,7 +59868,7 @@ var require_light = __commonJS({
               retryAfter = ~~retry3;
               this.Events.trigger("retry", `Retrying ${this.options.id} after ${retryAfter} ms`, eventInfo);
               this.retryCount++;
-              return run4(retryAfter);
+              return run5(retryAfter);
             } else {
               this.doDone(eventInfo);
               await free(this.options, eventInfo);
@@ -60506,17 +60506,17 @@ var require_light = __commonJS({
             }
           }
           _run(index, job, wait) {
-            var clearGlobalState, free, run4;
+            var clearGlobalState, free, run5;
             job.doRun();
             clearGlobalState = this._clearGlobalState.bind(this, index);
-            run4 = this._run.bind(this, index, job);
+            run5 = this._run.bind(this, index, job);
             free = this._free.bind(this, index, job);
             return this._scheduled[index] = {
               timeout: setTimeout(() => {
-                return job.doExecute(this._limiter, clearGlobalState, run4, free);
+                return job.doExecute(this._limiter, clearGlobalState, run5, free);
               }, wait),
               expiration: job.options.expiration != null ? setTimeout(function() {
-                return job.doExpire(clearGlobalState, run4, free);
+                return job.doExpire(clearGlobalState, run5, free);
               }, wait + job.options.expiration) : void 0,
               job
             };
@@ -64904,8 +64904,8 @@ function getState(name) {
 }
 
 // src/actions/publish.ts
-import { readFileSync as readFileSync10 } from "node:fs";
-import { join as join9 } from "node:path";
+import { readFileSync as readFileSync11 } from "node:fs";
+import { join as join10 } from "node:path";
 
 // node_modules/@actions/artifact/lib/internal/shared/config.js
 import os6 from "os";
@@ -79176,14 +79176,14 @@ var NativeCRC64 = (() => {
     missingLibrarySymbols.forEach(missingLibrarySymbol);
     var calledRun;
     dependenciesFulfilled = function runCaller() {
-      if (!calledRun) run4();
+      if (!calledRun) run5();
       if (!calledRun) dependenciesFulfilled = runCaller;
     };
     function stackCheckInit() {
       _emscripten_stack_init();
       writeStackCookie();
     }
-    function run4(args) {
+    function run5(args) {
       args = args || arguments_;
       if (runDependencies > 0) {
         return;
@@ -79241,7 +79241,7 @@ var NativeCRC64 = (() => {
         Module["preInit"].pop()();
       }
     }
-    run4();
+    run5();
     function WrapperObject() {
     }
     WrapperObject.prototype = Object.create(WrapperObject.prototype);
@@ -108406,7 +108406,7 @@ function quote(text2) {
   return text2.split("\n").map((line) => line ? "> " + line : ">").join("\n");
 }
 function fence(code, info2 = "") {
-  const runs = (code.match(/`+/g) ?? []).map((run4) => run4.length);
+  const runs = (code.match(/`+/g) ?? []).map((run5) => run5.length);
   const ticks = "`".repeat(Math.max(3, 1 + Math.max(0, ...runs)));
   const ending = code.endsWith("\n") ? "" : "\n";
   return `${ticks}${info2}
@@ -108896,7 +108896,23 @@ function redact(paths, secrets) {
   if (!usable.length) return 0;
   let replaced = 0;
   for (const file of paths.flatMap(filesUnder)) {
-    let text2 = readFileSync3(file, "utf8");
+    const bytes = readFileSync3(file);
+    if (bytes.includes(0)) {
+      let hits2 = 0;
+      for (const secret of usable) {
+        const needle = Buffer.from(secret, "utf8");
+        for (let at = bytes.indexOf(needle); at !== -1; at = bytes.indexOf(needle, at + needle.length)) {
+          bytes.fill(42, at, at + needle.length);
+          hits2 += 1;
+        }
+      }
+      if (hits2) {
+        writeFileSync2(file, bytes);
+        replaced += hits2;
+      }
+      continue;
+    }
+    let text2 = bytes.toString("utf8");
     let hits = 0;
     for (const secret of usable) {
       const parts = text2.split(secret);
@@ -108925,9 +108941,9 @@ function packState(out, directories, secrets, root = "/") {
   writeFileSync2(out, gzipSync(JSON.stringify({ version: 1, files })));
   return hits;
 }
-function unpackState(archive4, directories, root = "/") {
+function unpackState(archive5, directories, root = "/") {
   const allowed = directories.map((directory) => relative2(root, directory).split(sep4).join("/"));
-  const manifest = JSON.parse(gunzipSync(readFileSync3(archive4)).toString("utf8"));
+  const manifest = JSON.parse(gunzipSync(readFileSync3(archive5)).toString("utf8"));
   let restored = 0;
   for (const file of manifest.files ?? []) {
     const name = typeof file.path === "string" ? file.path : "";
@@ -109322,7 +109338,7 @@ async function hostStatus(rql, cwd) {
   return plain.stdout + plain.stderr;
 }
 function adapterName(agent) {
-  if (agent === "claude" || agent === "codex") return agent;
+  if (agent === "claude" || agent === "codex" || agent === "opencode") return agent;
   const base = agent.split(/[\\/]/).pop() ?? agent;
   return base.replace(/_session\.[^.]*$/, "").replace(/\.[^.]*$/, "").replace(/[^A-Za-z0-9_-]/g, "-");
 }
@@ -109343,8 +109359,8 @@ function repository(environ = process.env) {
 }
 
 // src/actions/review.ts
-import { existsSync as existsSync8, mkdirSync as mkdirSync3, readdirSync as readdirSync3, readFileSync as readFileSync9, realpathSync, rmSync, statSync as statSync3, writeFileSync as writeFileSync7 } from "node:fs";
-import { dirname as dirname5, join as join8, resolve as resolve3 } from "node:path";
+import { existsSync as existsSync9, mkdirSync as mkdirSync4, readdirSync as readdirSync3, readFileSync as readFileSync10, realpathSync, rmSync, statSync as statSync3, writeFileSync as writeFileSync8 } from "node:fs";
+import { dirname as dirname5, join as join9, resolve as resolve3 } from "node:path";
 
 // src/harness/claude.ts
 import { randomUUID as randomUUID4 } from "node:crypto";
@@ -110274,17 +110290,275 @@ function createExternalAdapter(path16, deps = {}) {
   };
 }
 
+// src/harness/opencode.ts
+import { closeSync as closeSync3, existsSync as existsSync8, mkdirSync as mkdirSync3, openSync as openSync3, readFileSync as readFileSync9, writeFileSync as writeFileSync7, writeSync as writeSync3 } from "node:fs";
+import { homedir as homedir3 } from "node:os";
+import { join as join8 } from "node:path";
+var CREDENTIALS2 = [
+  "ANTHROPIC_API_KEY",
+  "OPENAI_API_KEY",
+  "OPENCODE_API_KEY",
+  "OPENROUTER_API_KEY",
+  "GEMINI_API_KEY",
+  "GOOGLE_GENERATIVE_AI_API_KEY",
+  "FIREWORKS_API_KEY",
+  "GROQ_API_KEY",
+  "XAI_API_KEY",
+  "DEEPSEEK_API_KEY",
+  "MOONSHOT_API_KEY"
+];
+var PACKAGE = "@opencode/cli";
+function opencodeData(environ) {
+  return join8(environ.XDG_DATA_HOME || join8(homedir3(), ".local", "share"), "opencode");
+}
+function reviewData(environ) {
+  return join8(opencodeData(environ), "review");
+}
+function sessionPath3(repo, number, environ) {
+  return sessionRecordPath(opencodeData(environ), repo, number);
+}
+function stateDirs3(environ) {
+  return [reviewData(environ), join8(opencodeData(environ), "review-sessions")];
+}
+function childEnvironment(environ, rql) {
+  const env = { ...environ, OPENCODE_DB: join8(reviewData(environ), "opencode.db") };
+  if (rql) {
+    env.OPENCODE_CONFIG_CONTENT = JSON.stringify({
+      mcp: { repoql: { type: "local", command: [rql, "mcp"], codemode: false } }
+    });
+  }
+  return env;
+}
+function answerInstruction(schema) {
+  return `
+
+When you have finished, your final message is the review record and nothing else: one JSON object that matches the JSON Schema in ${schema}. Write no other text and no code fence around it.
+`;
+}
+function recordFrom(text2) {
+  const trimmed = text2.trim();
+  const fenced = /^```(?:json)?\s*\n([\s\S]*?)\n```$/.exec(trimmed)?.[1];
+  for (const candidate of [trimmed, fenced]) {
+    if (candidate === void 0) continue;
+    try {
+      const value = JSON.parse(candidate);
+      if (isObject2(value)) return value;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+function eventOf2(line) {
+  let event;
+  try {
+    event = JSON.parse(line);
+  } catch {
+    return void 0;
+  }
+  return isObject2(event) ? event : void 0;
+}
+async function capture(rt, args, env) {
+  const child2 = rt.spawn("opencode", args, { cwd: rt.cwd(), env, stdio: ["ignore", "pipe", "pipe"] });
+  await started(child2);
+  const out = collect(child2.stdout);
+  const err = collect(child2.stderr);
+  const [code] = await Promise.all([exited(child2), out.done, err.done]);
+  return { code, text: out.text() + err.text() };
+}
+async function sessionExists(sessionId, rt, env) {
+  try {
+    return (await capture(rt, ["session", "export", sessionId, "--standalone"], env)).code === 0;
+  } catch (error2) {
+    if (!isOsError(error2)) throw error2;
+    return false;
+  }
+}
+async function execReview3(args, prompt, path16, previous, resume, rt) {
+  const command = ["run", "--standalone", "--format", "json", "--auto"];
+  if (resume) command.push("--session", previous.session_id);
+  command.push(...args.agentArgs);
+  unlinkMissingOk(args.record);
+  mkdirSync3(reviewData(rt.environ), { recursive: true });
+  const child2 = rt.spawn("opencode", command, {
+    cwd: rt.cwd(),
+    env: childEnvironment(rt.environ, args.rql),
+    stdio: ["pipe", "pipe", "inherit"]
+  });
+  await started(child2);
+  let current = resume ? { ...previous } : null;
+  let failed = false;
+  let calls = 0;
+  let text2 = "";
+  feedPrompt(child2, prompt + answerInstruction(args.schema));
+  try {
+    const events2 = openSync3(args.events, "a");
+    try {
+      await forEachLine(child2.stdout, (line) => {
+        writeSync3(events2, line);
+        const event = eventOf2(line);
+        if (event === void 0) return;
+        const sessionId = event.sessionID;
+        if (current === null && typeof sessionId === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(sessionId)) {
+          current = { session_id: sessionId, head: null };
+          writeJson(path16, current);
+        }
+        const part = isObject2(event.part) ? event.part : {};
+        if (event.type === "tool_use" && String(part.tool ?? "").startsWith("repoql_")) {
+          const state3 = isObject2(part.state) ? part.state : {};
+          if (state3.status === "completed") calls += 1;
+        }
+        if (event.type === "text" && typeof part.text === "string" && part.text.trim()) text2 = part.text;
+        if (event.type === "error") failed = true;
+      });
+    } finally {
+      closeSync3(events2);
+    }
+    const code = await exited(child2);
+    const completed = code === 0 && !failed && text2 !== "";
+    if (text2) {
+      const record = recordFrom(text2);
+      if (record) writeJson(args.record, record);
+      else writeFileSync7(args.record, text2, "utf8");
+    }
+    if (completed && current !== null) {
+      current.head = args.head;
+      writeJson(path16, current);
+    }
+    return [code, completed, calls];
+  } finally {
+    try {
+      if (running(child2)) {
+        child2.kill("SIGTERM");
+        if (!await waitExit(child2, rt.timeouts.stop)) child2.kill("SIGKILL");
+      }
+    } catch (error2) {
+      if (!isOsError(error2)) throw error2;
+      child2.kill("SIGKILL");
+    }
+    for (const stream5 of [child2.stdin, child2.stdout]) stream5?.destroy();
+  }
+}
+async function run4(args, rt) {
+  const path16 = sessionPath3(args.repo, args.pr, rt.environ);
+  const existed = existsSync8(path16);
+  let previous = null;
+  let broken = false;
+  if (existed) {
+    try {
+      previous = readSession(path16);
+    } catch (error2) {
+      if (!isOsError(error2) && !isValueError(error2)) throw error2;
+      broken = true;
+      rt.emit(`::warning::Could not read the earlier opencode session: ${errorText(error2)}`);
+    }
+  }
+  const lastHead = previous ? previous.head : null;
+  let session = args.fresh && existed ? "fresh" : broken ? "lost" : "new";
+  const continuing = previous !== null && !args.fresh;
+  if (continuing) session = "continued";
+  let calls = 0;
+  try {
+    writeFileSync7(args.events, "", "utf8");
+    if (continuing) {
+      if (!await sessionExists(previous.session_id, rt, childEnvironment(rt.environ))) {
+        rt.emit("::warning::The earlier opencode session could not be restored: opencode no longer holds it.");
+        session = "lost";
+      } else {
+        const prompt2 = readFileSync9(args.again, "utf8").replaceAll("{last_head}", lastHead || "unknown");
+        let code2, completed;
+        [code2, completed, calls] = await execReview3(args, prompt2, path16, previous, true, rt);
+        if (code2 === 0 || completed) return code2;
+        session = "lost";
+      }
+    }
+    const prompt = readFileSync9(args.first, "utf8");
+    let code;
+    [code, , calls] = await execReview3(args, prompt, path16, previous, false, rt);
+    return code;
+  } catch (error2) {
+    if (!isOsError(error2)) throw error2;
+    rt.emit(`::warning::Could not run the opencode review: ${errorText(error2)}`);
+    return 1;
+  } finally {
+    writeJson(args.sight, { session, last_head: lastHead, repoql_calls: calls });
+  }
+}
+async function prepare3(rt) {
+  const env = childEnvironment(rt.environ);
+  try {
+    const version5 = rt.which("opencode") === null ? null : (await capture(rt, ["--version"], env)).text.trim();
+    const major = Number(/(\d+)\.\d+/.exec(version5 ?? "")?.[1] ?? "0");
+    if (major < 2) {
+      rt.emit(version5 ? `opencode ${version5} is older than 2; installing ${PACKAGE}.` : `Installing ${PACKAGE}.`);
+      const child2 = rt.spawn("npm", ["install", "--global", PACKAGE], { cwd: rt.cwd(), stdio: ["ignore", "inherit", "inherit"] });
+      await started(child2);
+      if (await exited(child2) !== 0 || rt.which("opencode") === null) {
+        rt.emit(`::error::opencode 2 could not be installed with npm (${PACKAGE}). Install it before the review action.`);
+        return 1;
+      }
+    }
+    if (CREDENTIALS2.some((name) => rt.environ[name])) return 0;
+    const listed = await capture(rt, ["auth", "list", "--standalone"], env);
+    if (listed.code === 0 && listed.text.trim() && !listed.text.includes("No authenticated integrations")) return 0;
+  } catch (error2) {
+    if (!isOsError(error2)) throw error2;
+    rt.emit(`::error::opencode could not be prepared: ${errorText(error2)}`);
+    return 1;
+  }
+  rt.emit(
+    "::error::opencode has no model credential. Set the provider's key from a secret on the job, such as ANTHROPIC_API_KEY or OPENAI_API_KEY, or OPENCODE_API_KEY for OpenCode Zen, and pick the model with the review action's model input, as provider/model."
+  );
+  return 1;
+}
+async function archive3(repo, number, rt) {
+  const path16 = sessionPath3(repo, number, rt.environ);
+  if (!existsSync8(path16)) {
+    rt.emit(`No opencode review session to archive for ${repo}#${number}.`);
+    return 0;
+  }
+  try {
+    const session = readSession(path16);
+    await capture(rt, ["session", "delete", session.session_id, "--standalone"], childEnvironment(rt.environ));
+  } catch (error2) {
+    if (!isOsError(error2) && !isValueError(error2)) throw error2;
+  } finally {
+    try {
+      unlinkMissingOk(path16);
+    } catch (error2) {
+      if (!isOsError(error2)) throw error2;
+      rt.emit(`::warning::Could not delete the opencode session record: ${errorText(error2)}`);
+    }
+  }
+  rt.emit(`Archived opencode review session for ${repo}#${number}.`);
+  return 0;
+}
+function wiredArgs3(args) {
+  return [...args.model ? ["--model", args.model] : [], ...args.agentArgs];
+}
+function createOpencodeAdapter(deps = {}) {
+  const rt = runtime(deps, 0);
+  return {
+    name: "opencode",
+    prepare: () => prepare3(rt),
+    stateDirs: () => stateDirs3(rt.environ),
+    run: (args) => run4({ ...args, agentArgs: wiredArgs3(args) }, rt),
+    archive: (repo, pr) => archive3(repo, pr, rt)
+  };
+}
+
 // src/actions/review.ts
 var PACK = (() => {
   let directory = import.meta.dirname;
-  while (!existsSync8(join8(directory, "record.schema.json")) && dirname5(directory) !== directory) directory = dirname5(directory);
+  while (!existsSync9(join9(directory, "record.schema.json")) && dirname5(directory) !== directory) directory = dirname5(directory);
   return directory;
 })();
 function adapterFor(agent, workspace) {
   if (agent === "claude") return createClaudeAdapter({});
   if (agent === "codex") return createCodexAdapter({});
+  if (agent === "opencode") return createOpencodeAdapter({});
   const path16 = resolve3(workspace, agent);
-  if (!existsSync8(path16)) throw new Error(`The agent input is '${agent}'. Use claude, codex, or the path of an adapter script in the checkout.`);
+  if (!existsSync9(path16)) throw new Error(`The agent input is '${agent}'. Use claude, codex, opencode, or the path of an adapter script in the checkout.`);
   return createExternalAdapter(path16, {});
 }
 async function restoreSession(github, token, name, directories, temp) {
@@ -110296,13 +110570,13 @@ async function restoreSession(github, token, name, directories, temp) {
     info("No earlier session for this pull request; the reviewer starts a new one.");
     return;
   }
-  const into = join8(temp, "session-restore");
+  const into = join9(temp, "session-restore");
   rmSync(into, { recursive: true, force: true });
   await new DefaultArtifactClient().downloadArtifact(newest.id, {
     path: into,
     findBy: { token, workflowRunId: runId, repositoryOwner: repo.owner, repositoryName: repo.name }
   });
-  info(`Restored ${unpackState(join8(into, "session.json.gz"), directories)} session file(s) from artifact ${newest.id}.`);
+  info(`Restored ${unpackState(join9(into, "session.json.gz"), directories)} session file(s) from artifact ${newest.id}.`);
 }
 async function upload(name, files, root, retentionDays) {
   const client2 = new DefaultArtifactClient();
@@ -110313,7 +110587,7 @@ async function upload(name, files, root, retentionDays) {
   await client2.uploadArtifact(name, files, root, { retentionDays });
 }
 function listFiles(directory) {
-  return readdirSync3(directory, { recursive: true, encoding: "utf8" }).map((name) => join8(directory, name)).filter((path16) => statSync3(path16).isFile());
+  return readdirSync3(directory, { recursive: true, encoding: "utf8" }).map((name) => join9(directory, name)).filter((path16) => statSync3(path16).isFile());
 }
 async function review(environ = process.env) {
   const pr = environ.REVIEW_PR;
@@ -110327,19 +110601,19 @@ async function review(environ = process.env) {
   const extra = getInput("redact");
   const workspace = environ.GITHUB_WORKSPACE ?? process.cwd();
   const temp = environ.RUNNER_TEMP ?? "/tmp";
-  const folder = join8(temp, "review");
+  const folder = join9(temp, "review");
   const { full: repo } = repository(environ);
   const name = adapterName(agent);
   const artifact = `review-${pr}-${environ.GITHUB_RUN_ATTEMPT || "1"}`;
-  mkdirSync3(folder, { recursive: true });
+  mkdirSync4(folder, { recursive: true });
   setOutput("pr", pr);
   setOutput("head-sha", environ.REVIEW_HEAD_SHA ?? "");
   setOutput("artifact", artifact);
   for (const secret of extra.split(/\r?\n/).map((line) => line.trim())) if (secret) setSecret(secret);
-  const kata = realpathSync(getInput("kata") ? resolve3(workspace, getInput("kata")) : join8(PACK, "kata"));
-  const templates = getInput("prompts") ? resolve3(workspace, getInput("prompts")) : join8(PACK, "prompts");
-  for (const file of [join8(kata, "SKILL.md"), join8(kata, "record.md"), ...["first.md", "again.md", "environment.md"].map((f) => join8(templates, f))]) {
-    if (!existsSync8(file)) throw new Error(`${file} is missing.`);
+  const kata = realpathSync(getInput("kata") ? resolve3(workspace, getInput("kata")) : join9(PACK, "kata"));
+  const templates = getInput("prompts") ? resolve3(workspace, getInput("prompts")) : join9(PACK, "prompts");
+  for (const file of [join9(kata, "SKILL.md"), join9(kata, "record.md"), ...["first.md", "again.md", "environment.md"].map((f) => join9(templates, f))]) {
+    if (!existsSync9(file)) throw new Error(`${file} is missing.`);
   }
   const adapter = adapterFor(agent, workspace);
   const directories = await adapter.stateDirs();
@@ -110358,11 +110632,11 @@ async function review(environ = process.env) {
       });
     }
     const context5 = await gather2(github, repo, Number(pr));
-    writeFileSync7(join8(folder, "context.json"), `${JSON.stringify(context5, null, 2)}
+    writeFileSync8(join9(folder, "context.json"), `${JSON.stringify(context5, null, 2)}
 `);
-    writeFileSync7(join8(folder, "pull-request.md"), brief(context5));
-    const pull = JSON.parse(readFileSync9(join8(folder, "pr.json"), "utf8"));
-    mkdirSync3(join8(temp, "scratch"), { recursive: true });
+    writeFileSync8(join9(folder, "pull-request.md"), brief(context5));
+    const pull = JSON.parse(readFileSync10(join9(folder, "pr.json"), "utf8"));
+    mkdirSync4(join9(temp, "scratch"), { recursive: true });
     prompts(templates, folder, {
       pr,
       repo,
@@ -110370,8 +110644,8 @@ async function review(environ = process.env) {
       base_ref: environ.REVIEW_BASE_REF ?? "",
       head_sha: environ.REVIEW_HEAD_SHA ?? "",
       kata,
-      brief: join8(folder, "pull-request.md"),
-      scratch: join8(temp, "scratch"),
+      brief: join9(folder, "pull-request.md"),
+      scratch: join9(temp, "scratch"),
       instructions: getInput("instructions")
     });
     const model = getInput("model");
@@ -110380,12 +110654,12 @@ async function review(environ = process.env) {
       repo,
       pr: Number(pr),
       head: environ.REVIEW_HEAD_SHA ?? "",
-      first: join8(folder, "first.md"),
-      again: join8(folder, "again.md"),
-      schema: join8(PACK, "record.schema.json"),
-      record: join8(folder, "record.json"),
-      events: join8(folder, "events.jsonl"),
-      sight: join8(folder, "session.json"),
+      first: join9(folder, "first.md"),
+      again: join9(folder, "again.md"),
+      schema: join9(PACK, "record.schema.json"),
+      record: join9(folder, "record.json"),
+      events: join9(folder, "events.jsonl"),
+      sight: join9(folder, "session.json"),
       // `none` keeps no session, so one left on a persistent runner is not continued either.
       fresh: environ.REVIEW_FRESH === "true" || store === "none",
       ...model ? { model } : {},
@@ -110393,7 +110667,7 @@ async function review(environ = process.env) {
       agentArgs
     });
     if (code !== 0) throw new Error(`The ${name} agent exited ${code}.`);
-    const gated = gate(join8(folder, "session.json"));
+    const gated = gate(join9(folder, "session.json"));
     if (!gated.ok) {
       throw new Error("The reviewer finished without a successful repoql tool call: the MCP server failed to start, or the reviewer ignored it. The events file in the review artifact shows which.");
     }
@@ -110404,16 +110678,16 @@ async function review(environ = process.env) {
       throw new Error(`The host serving the checkout is no longer the one the setup action launched (pid ${environ.REVIEW_HOST_PID}): pid ${servingPid(status) || "none"} answers now. The review may have read another host's index.`);
     }
     const sight2 = sight(
-      join8(folder, "session.json"),
+      join9(folder, "session.json"),
       environ.REVIEW_RQL_VERSION ?? "unknown",
       model || agent,
       runUrl(environ),
       environ.REVIEW_COMMAND || "/review",
       [gated.impaired ?? ""]
     );
-    writeFileSync7(join8(folder, "sight.json"), `${JSON.stringify(sight2)}
+    writeFileSync8(join9(folder, "sight.json"), `${JSON.stringify(sight2)}
 `);
-    const raw = existsSync8(join8(folder, "record.json")) ? readFileSync9(join8(folder, "record.json"), "utf8") : "";
+    const raw = existsSync9(join9(folder, "record.json")) ? readFileSync10(join9(folder, "record.json"), "utf8") : "";
     let record = null;
     try {
       record = JSON.parse(raw);
@@ -110421,7 +110695,7 @@ async function review(environ = process.env) {
       record = null;
     }
     const plan = render(record, context5, sight2, raw);
-    writeFileSync7(join8(folder, "plan.json"), `${JSON.stringify(plan, null, 2)}
+    writeFileSync8(join9(folder, "plan.json"), `${JSON.stringify(plan, null, 2)}
 `);
     setOutput("verdict", plan.verdict);
     rendered = true;
@@ -110429,10 +110703,10 @@ async function review(environ = process.env) {
     const secrets = secretsOf({ ...environ, GH_TOKEN: token }, extra);
     if (store === "artifact" && directories.length) {
       try {
-        const packed = join8(temp, "session-out", "session.json.gz");
+        const packed = join9(temp, "session-out", "session.json.gz");
         const hits2 = packState(packed, directories, secrets);
         if (hits2) warning(`Redacted ${hits2} credential occurrence(s) from the reviewer's session.`);
-        await upload(`review-session-${name}-${pr}`, [packed], join8(temp, "session-out"), Number(getInput("session-retention-days") || "30"));
+        await upload(`review-session-${name}-${pr}`, [packed], join9(temp, "session-out"), Number(getInput("session-retention-days") || "30"));
       } catch (error2) {
         warning(`The reviewer's session could not be kept; the next review starts a new one. ${String(error2)}`);
       }
@@ -110445,7 +110719,7 @@ async function review(environ = process.env) {
       warning(`The review could not be uploaded: ${String(error2)}`);
     }
     if (rendered) {
-      const plan = JSON.parse(readFileSync9(join8(folder, "plan.json"), "utf8"));
+      const plan = JSON.parse(readFileSync10(join9(folder, "plan.json"), "utf8"));
       await summary.addRaw(markdown(plan)).write();
     }
   }
@@ -110499,9 +110773,9 @@ async function publish2(environ = process.env) {
     const name = getInput("artifact") || `review-${pr}-${environ.GITHUB_RUN_ATTEMPT || "1"}`;
     const client2 = new DefaultArtifactClient();
     const { artifact } = await client2.getArtifact(name);
-    const into = join9(environ.RUNNER_TEMP ?? "/tmp", "handoff");
+    const into = join10(environ.RUNNER_TEMP ?? "/tmp", "handoff");
     await client2.downloadArtifact(artifact.id, { path: into });
-    const plan = JSON.parse(readFileSync10(join9(into, "plan.json"), "utf8"));
+    const plan = JSON.parse(readFileSync11(join10(into, "plan.json"), "utf8"));
     const code = await publish(github, repo, Number(pr), plan, { environ, emit: (line) => info(line) });
     if (code !== 0) throw new Error(`Publishing the review exited ${code}.`);
   } catch (error2) {
@@ -110536,7 +110810,7 @@ async function reply(environ = process.env) {
   info(`The reply is in a decision thread; started a review of #${pr}.`);
   setOutput("started", "true");
 }
-async function archive3(environ = process.env) {
+async function archive4(environ = process.env) {
   const agent = getInput("agent") || "claude";
   const pr = getInput("pr", { required: true });
   const repo = repository(environ).full;
@@ -110560,9 +110834,9 @@ async function archive3(environ = process.env) {
 
 // src/actions/setup.ts
 import { spawn as spawn3 } from "node:child_process";
-import { closeSync as closeSync5, existsSync as existsSync11, mkdirSync as mkdirSync4, openSync as openSync5, readFileSync as readFileSync11, writeFileSync as writeFileSync10 } from "node:fs";
-import { homedir as homedir4 } from "node:os";
-import { join as join14 } from "node:path";
+import { closeSync as closeSync6, existsSync as existsSync12, mkdirSync as mkdirSync5, openSync as openSync6, readFileSync as readFileSync12, writeFileSync as writeFileSync11 } from "node:fs";
+import { homedir as homedir5 } from "node:os";
+import { join as join15 } from "node:path";
 
 // node_modules/@actions/cache/lib/cache.js
 import * as path15 from "path";
@@ -112696,7 +112970,7 @@ var Path = class {
 // node_modules/@actions/glob/lib/internal-pattern.js
 var IS_WINDOWS6 = process.platform === "win32";
 var Pattern = class _Pattern {
-  constructor(patternOrNegate, isImplicitPattern = false, segments, homedir5) {
+  constructor(patternOrNegate, isImplicitPattern = false, segments, homedir6) {
     this.negate = false;
     let pattern;
     if (typeof patternOrNegate === "string") {
@@ -112715,7 +112989,7 @@ var Pattern = class _Pattern {
       this.negate = !this.negate;
       pattern = pattern.substr(1).trim();
     }
-    pattern = _Pattern.fixupPattern(pattern, homedir5);
+    pattern = _Pattern.fixupPattern(pattern, homedir6);
     this.segments = new Path(pattern).segments;
     this.trailingSeparator = normalizeSeparators2(pattern).endsWith(path11.sep);
     pattern = safeTrimTrailingSeparator(pattern);
@@ -112771,7 +113045,7 @@ var Pattern = class _Pattern {
   /**
    * Normalizes slashes and ensures absolute root
    */
-  static fixupPattern(pattern, homedir5) {
+  static fixupPattern(pattern, homedir6) {
     assert3(pattern, "pattern cannot be empty");
     const literalSegments = new Path(pattern).segments.map((x) => _Pattern.getLiteral(x));
     assert3(literalSegments.every((x, i) => (x !== "." || i === 0) && x !== ".."), `Invalid pattern '${pattern}'. Relative pathing '.' and '..' is not allowed.`);
@@ -112780,10 +113054,10 @@ var Pattern = class _Pattern {
     if (pattern === "." || pattern.startsWith(`.${path11.sep}`)) {
       pattern = _Pattern.globEscape(process.cwd()) + pattern.substr(1);
     } else if (pattern === "~" || pattern.startsWith(`~${path11.sep}`)) {
-      homedir5 = homedir5 || os8.homedir();
-      assert3(homedir5, "Unable to determine HOME directory");
-      assert3(hasAbsoluteRoot(homedir5), `Expected HOME directory to be a rooted path. Actual '${homedir5}'`);
-      pattern = _Pattern.globEscape(homedir5) + pattern.substr(1);
+      homedir6 = homedir6 || os8.homedir();
+      assert3(homedir6, "Unable to determine HOME directory");
+      assert3(hasAbsoluteRoot(homedir6), `Expected HOME directory to be a rooted path. Actual '${homedir6}'`);
+      pattern = _Pattern.globEscape(homedir6) + pattern.substr(1);
     } else if (IS_WINDOWS6 && (pattern.match(/^[A-Z]:$/i) || pattern.match(/^[A-Z]:[^\\]/i))) {
       let root = ensureAbsoluteRoot("C:\\dummy-root", pattern.substr(0, 2));
       if (pattern.length > 2 && !root.endsWith("\\")) {
@@ -135353,7 +135627,7 @@ function internalCacheTwirpClient(options) {
 }
 
 // node_modules/@actions/cache/lib/internal/tar.js
-import { existsSync as existsSync10, writeFileSync as writeFileSync9 } from "fs";
+import { existsSync as existsSync11, writeFileSync as writeFileSync10 } from "fs";
 import * as path14 from "path";
 var __awaiter28 = function(thisArg, _arguments, P, generator) {
   function adopt(value) {
@@ -135391,7 +135665,7 @@ function getTarPath() {
         const systemTar = SystemTarPathOnWindows;
         if (gnuTar) {
           return { path: gnuTar, type: ArchiveToolType.GNU };
-        } else if (existsSync10(systemTar)) {
+        } else if (existsSync11(systemTar)) {
           return { path: systemTar, type: ArchiveToolType.BSD };
         }
         break;
@@ -135562,7 +135836,7 @@ function extractTar(archivePath, compressionMethod) {
 }
 function createTar(archiveFolder, sourceDirectories, compressionMethod) {
   return __awaiter28(this, void 0, void 0, function* () {
-    writeFileSync9(path14.join(archiveFolder, ManifestFilename), sourceDirectories.join("\n"));
+    writeFileSync10(path14.join(archiveFolder, ManifestFilename), sourceDirectories.join("\n"));
     const { commands } = yield getCommands(compressionMethod, "create");
     yield execCommands(commands, archiveFolder);
   });
@@ -136006,8 +136280,8 @@ async function git(args, cwd, secret) {
   return ran.stdout;
 }
 async function checkout(workspace, server, repo, sha, token) {
-  mkdirSync4(workspace, { recursive: true });
-  if (!existsSync11(join14(workspace, ".git"))) {
+  mkdirSync5(workspace, { recursive: true });
+  if (!existsSync12(join15(workspace, ".git"))) {
     await git(["init", "--quiet"], workspace);
     await git(["remote", "add", "origin", `${server}/${repo}`], workspace);
   } else {
@@ -136033,12 +136307,12 @@ async function installRql(version5) {
   const installed = await run("bash", ["-s"], { input: await response.text(), env });
   process.stdout.write(installed.stdout + installed.stderr);
   if (installed.code !== 0) throw new Error("The rql installer failed. Its output is above.");
-  const bin = join14(homedir4(), ".local", "bin");
+  const bin = join15(homedir5(), ".local", "bin");
   addPath(bin);
-  return join14(bin, "rql");
+  return join15(bin, "rql");
 }
 async function serve(rql, workspace, log2, token, timeoutMinutes) {
-  const out = openSync5(log2, "w");
+  const out = openSync6(log2, "w");
   const child2 = spawn3(rql, ["serve", "--path", workspace], {
     cwd: workspace,
     // The host clones the repositories the reviewer imports, and reads its credential from its own environment.
@@ -136046,7 +136320,7 @@ async function serve(rql, workspace, log2, token, timeoutMinutes) {
     detached: true,
     stdio: ["ignore", out, out]
   });
-  closeSync5(out);
+  closeSync6(out);
   child2.unref();
   const pid = child2.pid ?? 0;
   let exited2 = false;
@@ -136058,7 +136332,7 @@ async function serve(rql, workspace, log2, token, timeoutMinutes) {
     status = await hostStatus(rql, workspace);
     if (servingPid(status) === String(pid)) break;
     if (exited2) {
-      info(readFileSync11(log2, "utf8"));
+      info(readFileSync12(log2, "utf8"));
       throw new Error("rql serve exited before it answered for the checkout. Its log is above.");
     }
     await sleep(2e3);
@@ -136093,16 +136367,16 @@ async function setup(environ = process.env) {
   const command = getInput("command") || "/review";
   const cacheIndex = getInput("cache-index") !== "false";
   const workspace = environ.GITHUB_WORKSPACE ?? process.cwd();
-  const temp = join14(environ.RUNNER_TEMP ?? "/tmp", "review");
+  const temp = join15(environ.RUNNER_TEMP ?? "/tmp", "review");
   const { full: repo } = repository(environ);
-  mkdirSync4(temp, { recursive: true });
+  mkdirSync5(temp, { recursive: true });
   if (!prInput) throw new Error("No pull request to review. Pass the setup action a pr input, or run it on a pull_request or issue_comment event.");
   const pr = Number(prInput);
   const github = githubFromEnvironment(environ, token);
   const pull = await read(github, `repos/${repo}/pulls/${pr}`);
   const headRepo = pull.head.repo?.full_name ?? "(a deleted fork)";
   if (headRepo !== repo) throw new Error(`Pull request #${pr} comes from ${headRepo}; the reviewer only reviews branches of ${repo}.`);
-  writeFileSync10(join14(temp, "pr.json"), JSON.stringify(pull));
+  writeFileSync11(join15(temp, "pr.json"), JSON.stringify(pull));
   let fresh = getInput("fresh") === "true";
   const comment = environ.GITHUB_EVENT_NAME === "issue_comment" ? eventPayload(environ).comment?.body ?? "" : "";
   if (new RegExp(`^${command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+fresh`).test(comment)) fresh = true;
@@ -136142,7 +136416,7 @@ async function setup(environ = process.env) {
   exportVariable("REVIEW_RQL_VERSION", version5);
   saveState("rql", rql);
   const timeout = Number(getInput("ready-timeout-minutes") || "30");
-  await group("Serve the checkout", () => serve(rql, workspace, join14(temp, "rql-host.log"), token, timeout));
+  await group("Serve the checkout", () => serve(rql, workspace, join15(temp, "rql-host.log"), token, timeout));
 }
 async function stopped(pid, seconds) {
   const alive = () => {
@@ -136170,7 +136444,7 @@ async function setupPost() {
     warning("The rql host did not stop within a minute; its index is not cached.");
     whole = false;
   }
-  if (whole && key && workspace && existsSync11(join14(workspace, INDEX))) {
+  if (whole && key && workspace && existsSync12(join15(workspace, INDEX))) {
     try {
       process.chdir(workspace);
       await saveCache2([INDEX], key);
@@ -136179,7 +136453,7 @@ async function setupPost() {
       warning(`The RepoQL index could not be cached: ${String(error2)}`);
     }
   }
-  if (workspace && existsSync11(join14(workspace, ".git"))) {
+  if (workspace && existsSync12(join15(workspace, ".git"))) {
     const server = process.env.GITHUB_SERVER_URL ?? "https://github.com";
     await run("git", ["config", "--local", "--unset-all", `http.${server}/.extraheader`], { cwd: workspace });
   }
@@ -136192,7 +136466,7 @@ var ACTIONS = {
   review: () => review(),
   publish: () => publish2(),
   reply: () => reply(),
-  archive: () => archive3()
+  archive: () => archive4()
 };
 async function runAction(name) {
   const action6 = ACTIONS[name];
@@ -136207,6 +136481,7 @@ var USAGE2 = `usage: review-agent <command> [arguments]
 
   codex  <run|archive|state-dirs|prepare> ...   the Codex harness adapter
   claude <run|archive|state-dirs|prepare> ...   the Claude Code harness adapter
+  opencode <run|archive|state-dirs|prepare> ... the opencode 2 harness adapter
   gather  --repo O/R --pr N --out context.json --brief pull-request.md
   publish --repo O/R --pr N --plan plan.json [--dry-run]
   render  --context context.json --sight sight.json (--record record.json | --raw text) (--out plan.json | --markdown)
@@ -136221,6 +136496,8 @@ async function cli(argv, io) {
       return adapterMain(createCodexAdapter({ environ: io.environ, emit: io.emit }), rest, io);
     case "claude":
       return adapterMain(createClaudeAdapter({ environ: io.environ, emit: io.emit }), rest, io);
+    case "opencode":
+      return adapterMain(createOpencodeAdapter({ environ: io.environ, emit: io.emit }), rest, io);
     case "gather":
     case "publish":
       return main2(argv, { ...io, github: githubFromEnvironment(io.environ) });

@@ -107,7 +107,25 @@ export function redact(paths: string[], secrets: string[]): number {
   if (!usable.length) return 0;
   let replaced = 0;
   for (const file of paths.flatMap(filesUnder)) {
-    let text = readFileSync(file, "utf8");
+    const bytes = readFileSync(file);
+    // A binary file, such as a session database, is masked in place at the secret's own length, so its structure
+    // survives; rewriting it as text would corrupt it.
+    if (bytes.includes(0)) {
+      let hits = 0;
+      for (const secret of usable) {
+        const needle = Buffer.from(secret, "utf8");
+        for (let at = bytes.indexOf(needle); at !== -1; at = bytes.indexOf(needle, at + needle.length)) {
+          bytes.fill(0x2a, at, at + needle.length);
+          hits += 1;
+        }
+      }
+      if (hits) {
+        writeFileSync(file, bytes);
+        replaced += hits;
+      }
+      continue;
+    }
+    let text = bytes.toString("utf8");
     let hits = 0;
     for (const secret of usable) {
       const parts = text.split(secret);

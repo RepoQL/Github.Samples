@@ -16,6 +16,7 @@ import { githubFromEnvironment } from "./github-client.js";
 import { adapterMain } from "./harness/adapter.js";
 import { createClaudeAdapter } from "./harness/claude.js";
 import { createCodexAdapter } from "./harness/codex.js";
+import { createOpencodeAdapter } from "./harness/opencode.js";
 import type { Io } from "./io.js";
 import { redact, secretsOf } from "./job.js";
 import { main as pullRequestMain } from "./pull-request.js";
@@ -44,6 +45,7 @@ const USAGE = `usage: review-agent <command> [arguments]
 
   codex  <run|archive|state-dirs|prepare> ...   the Codex harness adapter
   claude <run|archive|state-dirs|prepare> ...   the Claude Code harness adapter
+  opencode <run|archive|state-dirs|prepare> ... the opencode 2 harness adapter
   gather  --repo O/R --pr N --out context.json --brief pull-request.md
   publish --repo O/R --pr N --plan plan.json [--dry-run]
   render  --context context.json --sight sight.json (--record record.json | --raw text) (--out plan.json | --markdown)
@@ -59,6 +61,8 @@ export async function cli(argv: string[], io: Io): Promise<number> {
       return adapterMain(createCodexAdapter({ environ: io.environ, emit: io.emit }), rest, io);
     case "claude":
       return adapterMain(createClaudeAdapter({ environ: io.environ, emit: io.emit }), rest, io);
+    case "opencode":
+      return adapterMain(createOpencodeAdapter({ environ: io.environ, emit: io.emit }), rest, io);
     case "gather":
     case "publish":
       return pullRequestMain(argv, { ...io, github: githubFromEnvironment(io.environ) });

@@ -17,6 +17,7 @@ describe("the actions' helpers", () => {
   it("names an adapter by its file, as its artifacts are kept", () => {
     expect(adapterName("claude")).toBe("claude");
     expect(adapterName("codex")).toBe("codex");
+    expect(adapterName("opencode")).toBe("opencode");
     expect(adapterName("tools/gemini_session.py")).toBe("gemini");
     expect(adapterName("./tools/my agent.ts")).toBe("my-agent");
     expect(adapterName("bin/aider")).toBe("aider");

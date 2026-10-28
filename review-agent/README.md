@@ -7,12 +7,12 @@ tags: [code-review, review-agent, github-actions, composite-action, claude-code,
 
 An agent reviews every push to a pull request, using RepoQL to understand the change against the whole codebase. It posts one GitHub review per push. A defect becomes a thread at the line with its proof, and a fix becomes a suggestion. A question only a person can answer becomes a decision thread, and a reply in that thread starts the next review. A re-review continues the same agent session, so the reviewer remembers what it raised and checks each finding again rather than starting over.
 
-The reviewer is **Claude Code** or **Codex**. You can also bring your own agent by writing one adapter script.
+The reviewer is **Claude Code**, **Codex**, or **opencode 2**. You can also bring your own agent by writing one adapter.
 
 ## Quick start
 
 1. Copy [`starter/review.yml`](starter/review.yml) to `.github/workflows/review.yml` in your repository.
-2. Add a secret for the agent: `ANTHROPIC_API_KEY` (or `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`) for Claude Code, or `OPENAI_API_KEY` for Codex.
+2. Add a secret for the agent: `ANTHROPIC_API_KEY` (or `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`) for Claude Code, `OPENAI_API_KEY` for Codex, or, for opencode, the key of the provider its model comes from (`OPENCODE_API_KEY` for OpenCode Zen).
 3. Sign rql in. Either install the RepoQL GitHub App on the repository, which signs rql in through the job's OIDC token, or add a `REPOQL_API_KEY` secret.
 4. Fill in the lines marked `CHANGE`. The most useful one is `instructions`: tell the reviewer how your repository builds and tests.
 
@@ -68,7 +68,7 @@ Most teams only change the first row.
 
 | Input | Default | Meaning |
 |-------|---------|---------|
-| `agent` | `claude` | `claude`, `codex`, or the path of your adapter script in the checkout |
+| `agent` | `claude` | `claude`, `codex`, `opencode`, or the path of your adapter in the checkout |
 | `model` | the agent's default | The model to review with |
 | `agent-args` | none | More arguments for the agent's CLI, one per line |
 | `instructions` | none | Text added to the reviewer's prompt |
@@ -94,9 +94,15 @@ agent-args: |
   approval_policy="never"
 ```
 
+opencode needs version 2; the adapter installs `@opencode/cli` when it finds none or an older one. It runs with `--standalone`, a private server for each command, and `--auto`, which approves each permission request once. Name its model as `provider/model`, such as `anthropic/claude-sonnet-5-5`, and give the job that provider's key. opencode differs from the other two in three ways:
+
+- **It cannot be held to a schema.** The prompt names the record's schema, and the record is the reviewer's final message. An answer that is not a JSON object is published as `undetermined`.
+- **It compacts a session itself** as the session grows, so the adapter does not ask it to.
+- **Its sessions live in a database.** The adapter gives the reviewer a database of its own, apart from any sign-in a person's opencode keeps, and that database is what the session artifact carries. Redaction masks secrets inside it without changing its length, so it still opens.
+
 ## Bringing your own agent
 
-An adapter is one program that knows one agent. [`src/harness/claude.ts`](src/harness/claude.ts) and [`src/harness/codex.ts`](src/harness/codex.ts) are the two that ship. Pass the path of yours, in the checkout, as `agent`. A `.js`, `.mjs`, `.cjs` or `.ts` file runs with Node, which runs TypeScript by stripping its types. A `.py` file runs with `python3`. Any other file runs as an executable.
+An adapter is one program that knows one agent. [`src/harness/claude.ts`](src/harness/claude.ts), [`src/harness/codex.ts`](src/harness/codex.ts) and [`src/harness/opencode.ts`](src/harness/opencode.ts) are the three that ship. Pass the path of yours, in the checkout, as `agent`. A `.js`, `.mjs`, `.cjs` or `.ts` file runs with Node, which runs TypeScript by stripping its types. A `.py` file runs with `python3`. Any other file runs as an executable.
 
 An adapter takes four commands.
 

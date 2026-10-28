@@ -56,7 +56,7 @@ export async function hostStatus(rql: string, cwd: string): Promise<string> {
 
 /** The name an adapter's artifacts and records are kept under. */
 export function adapterName(agent: string): string {
-  if (agent === "claude" || agent === "codex") return agent;
+  if (agent === "claude" || agent === "codex" || agent === "opencode") return agent;
   const base = agent.split(/[\\/]/).pop() ?? agent;
   return base.replace(/_session\.[^.]*$/, "").replace(/\.[^.]*$/, "").replace(/[^A-Za-z0-9_-]/g, "-");
 }

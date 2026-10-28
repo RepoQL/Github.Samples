@@ -15,6 +15,7 @@ import type { Adapter } from "../harness/adapter.js";
 import { createClaudeAdapter } from "../harness/claude.js";
 import { createCodexAdapter } from "../harness/codex.js";
 import { createExternalAdapter } from "../harness/external.js";
+import { createOpencodeAdapter } from "../harness/opencode.js";
 import * as job from "../job.js";
 import { brief, gather } from "../pull-request.js";
 import { markdown, render } from "../render.js";
@@ -30,8 +31,9 @@ export const PACK = (() => {
 export function adapterFor(agent: string, workspace: string): Adapter {
   if (agent === "claude") return createClaudeAdapter({});
   if (agent === "codex") return createCodexAdapter({});
+  if (agent === "opencode") return createOpencodeAdapter({});
   const path = resolve(workspace, agent);
-  if (!existsSync(path)) throw new Error(`The agent input is '${agent}'. Use claude, codex, or the path of an adapter script in the checkout.`);
+  if (!existsSync(path)) throw new Error(`The agent input is '${agent}'. Use claude, codex, opencode, or the path of an adapter script in the checkout.`);
   return createExternalAdapter(path, {});
 }
 
