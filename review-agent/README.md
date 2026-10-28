@@ -98,7 +98,9 @@ opencode needs version 2; the adapter installs `@opencode/cli` when it finds non
 
 - **It cannot be held to a schema.** The prompt names the record's schema, and the record is the reviewer's final message. An answer that is not a JSON object is published as `undetermined`.
 - **It compacts a session itself** as the session grows, so the adapter does not ask it to.
-- **Its sessions live in a database.** The adapter gives the reviewer a database of its own, apart from any sign-in a person's opencode keeps, and that database is what the session artifact carries. Redaction masks secrets inside it without changing its length, so it still opens.
+- **Its sessions live in its database, beside its sign-ins.** That database never leaves the runner. After each review the adapter keeps the session's own export, which is JSON text redaction can read whole. When opencode no longer holds the session, as on a fresh hosted runner, the next review imports it before continuing. A sign-in stored with `opencode auth login` on a self-hosted runner is used as it is.
+
+Every credential the shipped agents accept is listed once, in [`src/credentials.ts`](src/credentials.ts), and redaction scrubs all of them. It also scrubs any environment variable whose name ends in `API_KEY`, `_TOKEN`, `_SECRET`, `_SECRET_KEY`, `_ACCESS_KEY` or `_PASSWORD`, so a key the list does not name yet is still scrubbed. Name anything else in `redact`.
 
 ## Bringing your own agent
 

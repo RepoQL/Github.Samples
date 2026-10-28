@@ -38,9 +38,10 @@ import {
   waitExit,
   writeJson,
 } from "./adapter.js";
+import { CLAUDE } from "../credentials.js";
 
 // Any one of these lets Claude Code authenticate without a person.
-export const CREDENTIALS = ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX"] as const;
+export const CREDENTIALS = [...CLAUDE, "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX"] as const;
 
 export const COMPACT =
   "/compact Keep what the next review of this pull request needs: your understanding of the change, " +

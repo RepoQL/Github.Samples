@@ -8,18 +8,11 @@ import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, writeFileS
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 
+import { credentialValues } from "./credentials.js";
 import { trailingMarkers } from "./render.js";
 
-/** The credentials a reviewer may hold, by the names the harnesses and rql read them from. */
-export const SECRET_NAMES = [
-  "GH_TOKEN",
-  "GITHUB_TOKEN",
-  "REPOQL_API_KEY",
-  "ANTHROPIC_API_KEY",
-  "CLAUDE_CODE_OAUTH_TOKEN",
-  "OPENAI_API_KEY",
-  "CODEX_API_KEY",
-] as const;
+/** The credentials a reviewer may hold: one declaration, which the harness adapters accept from. */
+export { SECRET_NAMES } from "./credentials.js";
 
 export function fill(template: string, values: Record<string, string>): string {
   for (const [name, value] of Object.entries(values)) template = template.split(`{{${name}}}`).join(value);
@@ -141,7 +134,7 @@ export function redact(paths: string[], secrets: string[]): number {
 }
 
 export function secretsOf(environ: NodeJS.ProcessEnv, extra = ""): string[] {
-  return [...SECRET_NAMES.map((name) => environ[name] ?? ""), ...extra.split(/\r?\n/)].map((secret) => secret.trim());
+  return [...credentialValues(environ), ...extra.split(/\r?\n/)].map((secret) => secret.trim());
 }
 
 interface PackedFile {

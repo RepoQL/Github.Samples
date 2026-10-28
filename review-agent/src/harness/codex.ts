@@ -35,6 +35,7 @@ import {
   waitExit,
   writeJson,
 } from "./adapter.js";
+import { CODEX } from "../credentials.js";
 
 export function codexHome(environ: NodeJS.ProcessEnv): string {
   return environ.CODEX_HOME || join(homedir(), ".codex");
@@ -322,7 +323,7 @@ export async function prepare(rt: Runtime): Promise<number> {
       }
     }
     if ((await runCommand(rt, "codex", ["login", "status"], "ignore")) === 0) return 0;
-    const key = rt.environ.OPENAI_API_KEY || rt.environ.CODEX_API_KEY;
+    const key = CODEX.map((name) => rt.environ[name]).find(Boolean);
     if (key && (await runCommand(rt, "codex", ["login", "--with-api-key"], { input: key })) === 0) return 0;
   } catch (error) {
     if (!isOsError(error)) throw error;

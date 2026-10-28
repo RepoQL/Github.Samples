@@ -15,8 +15,8 @@ import {
   childEnvironment,
   createOpencodeAdapter,
   recordFrom,
-  reviewData,
   sessionPath,
+  transcriptPath,
 } from "../src/harness/opencode.js";
 
 vi.mock("node:child_process", async (original) => ({
@@ -31,6 +31,8 @@ const RECORD = JSON.parse(readFileSync(join(ROOT, "fixtures", "record.json"), "u
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
 const OLD_ID = "ses_old";
+const EXPORT = '{"info": {"id": "ses_x"}, "messages": []}\n';
+const kept: Behavior = { code: 0, output: EXPORT };
 
 type Event = string | Record<string, unknown>;
 
@@ -142,15 +144,16 @@ describe("opencode session", () => {
     events: [line("step_start", sessionId), ...rest, text(sessionId, JSON.stringify(RECORD)), line("step_finish", sessionId)],
   });
 
-  it("starts a new session, records its id and head, and answers with the record", async () => {
-    const runner = new FakeOpencode([turn("ses_new")]);
+  it("starts a new session, records its id and head, answers with the record, and keeps its export", async () => {
+    const runner = new FakeOpencode([turn("ses_new"), kept]);
     expect(await runSession(runner, ["--model", "anthropic/claude-sonnet-5-5", "--rql", "/opt/rql", "--", "--agent", "build"])).toBe(0);
     const [child] = runner.processes;
     expect(child!.command).toEqual(["opencode", "run", "--standalone", "--format", "json", "--auto",
       "--model", "anthropic/claude-sonnet-5-5", "--agent", "build"]);
     expect(child!.text).toBe("First review.\n" + answerInstruction(schema));
     const env = child!.options.env as NodeJS.ProcessEnv;
-    expect(env.OPENCODE_DB).toBe(join(reviewData(environ), "opencode.db"));
+    // opencode's own database, so a stored sign-in is seen.
+    expect(env.OPENCODE_DB).toBeUndefined();
     expect(JSON.parse(env.OPENCODE_CONFIG_CONTENT!)).toEqual({
       mcp: { repoql: { type: "local", command: ["/opt/rql", "mcp"], codemode: false } },
     });
@@ -158,6 +161,8 @@ describe("opencode session", () => {
     expect(read(sight)).toEqual({ session: "new", last_head: null, repoql_calls: 0 });
     expect(read(record)).toEqual(RECORD);
     expect(readFileSync(events, "utf8")).toContain('"step_start"');
+    expect(runner.processes[1]!.command).toEqual(["opencode", "session", "export", "ses_new", "--standalone"]);
+    expect(readFileSync(transcriptPath("O/R", 3, environ), "utf8")).toBe(EXPORT);
   });
 
   it("counts only repoql tool calls that completed", async () => {
@@ -169,7 +174,7 @@ describe("opencode session", () => {
 
   it("continues a session it still holds, with the last head in the prompt", async () => {
     writeJson(path, { session_id: OLD_ID, head: "old-head" });
-    const runner = new FakeOpencode([{ code: 0, output: "{}" }, turn(OLD_ID, tool(OLD_ID, "repoql_read", "completed"))]);
+    const runner = new FakeOpencode([{ code: 0, output: "{}" }, turn(OLD_ID, tool(OLD_ID, "repoql_read", "completed")), kept]);
     expect(await runSession(runner)).toBe(0);
     const [exported, resumed] = runner.processes;
     expect(exported!.command).toEqual(["opencode", "session", "export", OLD_ID, "--standalone"]);
@@ -179,11 +184,11 @@ describe("opencode session", () => {
     expect(read(path)).toEqual({ session_id: OLD_ID, head: "new-head" });
   });
 
-  it("starts a new session when opencode no longer holds the earlier one", async () => {
+  it("starts a new session when opencode no longer holds the earlier one and no export was kept", async () => {
     writeJson(path, { session_id: OLD_ID, head: "old-head" });
-    const runner = new FakeOpencode([{ code: 1, output: "Session not found" }, turn("ses_new")]);
+    const runner = new FakeOpencode([{ code: 1, output: "Session not found" }, turn("ses_new"), kept]);
     expect(await runSession(runner)).toBe(0);
-    expect(runner.processes).toHaveLength(2);
+    expect(runner.processes).toHaveLength(3);
     expect(runner.processes[1]!.command).not.toContain("--session");
     expect(read(sight)).toEqual({ session: "lost", last_head: "old-head", repoql_calls: 0 });
     expect(read(path).session_id).toBe("ses_new");
@@ -200,9 +205,9 @@ describe("opencode session", () => {
 
   it("starts fresh without asking about the earlier session", async () => {
     writeJson(path, { session_id: OLD_ID, head: "old-head" });
-    const runner = new FakeOpencode([turn("ses_new")]);
+    const runner = new FakeOpencode([turn("ses_new"), kept]);
     expect(await runSession(runner, ["--fresh"])).toBe(0);
-    expect(runner.processes).toHaveLength(1);
+    expect(runner.processes.map((child) => child.command[1])).toEqual(["run", "session"]);
     expect(read(sight)).toEqual({ session: "fresh", last_head: "old-head", repoql_calls: 0 });
   });
 
@@ -212,6 +217,47 @@ describe("opencode session", () => {
     expect(await runSession(runner)).toBe(0);
     expect(readFileSync(record, "utf8")).toBe("I could not finish.");
     expect(read(path)).toEqual({ session_id: "ses_new", head: null });
+  });
+
+  it("brings a session back from the export the last review kept, and continues it", async () => {
+    writeJson(path, { session_id: OLD_ID, head: "old-head" });
+    writeFileSync(transcriptPath("O/R", 3, environ), EXPORT);
+    const runner = new FakeOpencode([
+      { code: 1 },
+      { code: 0, output: `Imported session: ${OLD_ID}\n` },
+      { code: 0, output: EXPORT },
+      turn(OLD_ID, tool(OLD_ID, "repoql_read", "completed")),
+      kept,
+    ]);
+    expect(await runSession(runner)).toBe(0);
+    expect(runner.processes[1]!.command).toEqual(["opencode", "session", "import", transcriptPath("O/R", 3, environ),
+      "--directory", directory, "--standalone"]);
+    expect(runner.processes[3]!.command).toContain(OLD_ID);
+    expect(read(sight)).toEqual({ session: "continued", last_head: "old-head", repoql_calls: 1 });
+  });
+
+  it("continues under the id an import gives back", async () => {
+    writeJson(path, { session_id: OLD_ID, head: "old-head" });
+    writeFileSync(transcriptPath("O/R", 3, environ), EXPORT);
+    const runner = new FakeOpencode([{ code: 1 }, { output: "Imported session: ses_back\n" }, { code: 0 }, turn("ses_back"), kept]);
+    expect(await runSession(runner)).toBe(0);
+    expect(runner.processes[3]!.command.slice(6, 8)).toEqual(["--session", "ses_back"]);
+    expect(read(path)).toEqual({ session_id: "ses_back", head: "new-head" });
+  });
+
+  it("is lost when the kept export cannot be imported", async () => {
+    writeJson(path, { session_id: OLD_ID, head: "old-head" });
+    writeFileSync(transcriptPath("O/R", 3, environ), EXPORT);
+    const runner = new FakeOpencode([{ code: 1 }, { code: 1, output: "Failed to import session" }, turn("ses_new"), kept]);
+    expect(await runSession(runner)).toBe(0);
+    expect(read(sight).session).toBe("lost");
+  });
+
+  it("warns, and still reviews, when the session cannot be exported", async () => {
+    const runner = new FakeOpencode([turn("ses_new"), { code: 1 }]);
+    expect(await runSession(runner)).toBe(0);
+    expect(messages.some((m) => m.includes("could not be exported"))).toBe(true);
+    expect(existsSync(transcriptPath("O/R", 3, environ))).toBe(false);
   });
 
   it("reads a record inside a code fence, and nothing that is not an object", () => {
@@ -257,19 +303,21 @@ describe("opencode session", () => {
     expect(messages.at(-1)).toContain("OPENCODE_API_KEY");
   });
 
-  it("archives the session from opencode's database and the record", async () => {
+  it("archives the session from opencode's database, the record and the export", async () => {
     writeJson(path, { session_id: OLD_ID, head: "old-head" });
+    writeFileSync(transcriptPath("O/R", 3, environ), EXPORT);
     const runner = new FakeOpencode([{ code: 0 }]);
     expect(await adapter(runner).archive("O/R", 3)).toBe(0);
     expect(runner.processes[0]!.command).toEqual(["opencode", "session", "delete", OLD_ID, "--standalone"]);
     expect(existsSync(path)).toBe(false);
+    expect(existsSync(transcriptPath("O/R", 3, environ))).toBe(false);
     expect(await adapter(new FakeOpencode()).archive("O/R", 3)).toBe(0);
     expect(messages.at(-1)).toBe("No opencode review session to archive for O/R#3.");
   });
 
-  it("keeps the review database and the records between reviews", () => {
+  it("keeps the records and exports between reviews, never opencode's database", () => {
     const data = join(directory, "data", "opencode");
-    expect(adapter(new FakeOpencode()).stateDirs()).toEqual([join(data, "review"), join(data, "review-sessions")]);
+    expect(adapter(new FakeOpencode()).stateDirs()).toEqual([join(data, "review-sessions")]);
     expect(childEnvironment(environ).OPENCODE_CONFIG_CONTENT).toBeUndefined();
   });
 });

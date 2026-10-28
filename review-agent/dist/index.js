@@ -108303,6 +108303,31 @@ import { existsSync as existsSync5, lstatSync as lstatSync2, mkdirSync, readdirS
 import { dirname as dirname3, isAbsolute, join as join4, relative as relative2, sep as sep4 } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 
+// src/credentials.ts
+var CLAUDE = ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"];
+var CODEX = ["OPENAI_API_KEY", "CODEX_API_KEY"];
+var OPENCODE = [
+  "ANTHROPIC_API_KEY",
+  "OPENAI_API_KEY",
+  "OPENCODE_API_KEY",
+  "OPENROUTER_API_KEY",
+  "GEMINI_API_KEY",
+  "GOOGLE_GENERATIVE_AI_API_KEY",
+  "FIREWORKS_API_KEY",
+  "GROQ_API_KEY",
+  "XAI_API_KEY",
+  "DEEPSEEK_API_KEY",
+  "MOONSHOT_API_KEY"
+];
+var JOB = ["GH_TOKEN", "GITHUB_TOKEN", "REPOQL_API_KEY"];
+var SECRET_NAMES = [.../* @__PURE__ */ new Set([...JOB, ...CLAUDE, ...CODEX, ...OPENCODE])];
+var SECRET_PATTERN = /(?:API_KEY|_TOKEN|_SECRET|_SECRET_KEY|_ACCESS_KEY|_PASSWORD)$/;
+function credentialValues(environ) {
+  const names = new Set(SECRET_NAMES);
+  for (const name of Object.keys(environ)) if (SECRET_PATTERN.test(name)) names.add(name);
+  return [...names].map((name) => environ[name] ?? "");
+}
+
 // src/render.ts
 import { readFileSync as readFileSync2, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
@@ -108830,15 +108855,6 @@ async function main(argv, io) {
 }
 
 // src/job.ts
-var SECRET_NAMES = [
-  "GH_TOKEN",
-  "GITHUB_TOKEN",
-  "REPOQL_API_KEY",
-  "ANTHROPIC_API_KEY",
-  "CLAUDE_CODE_OAUTH_TOKEN",
-  "OPENAI_API_KEY",
-  "CODEX_API_KEY"
-];
 function fill(template, values) {
   for (const [name, value] of Object.entries(values)) template = template.split(`{{${name}}}`).join(value);
   return template;
@@ -108927,7 +108943,7 @@ function redact(paths, secrets) {
   return replaced;
 }
 function secretsOf(environ, extra = "") {
-  return [...SECRET_NAMES.map((name) => environ[name] ?? ""), ...extra.split(/\r?\n/)].map((secret) => secret.trim());
+  return [...credentialValues(environ), ...extra.split(/\r?\n/)].map((secret) => secret.trim());
 }
 function packState(out, directories, secrets, root = "/") {
   const present2 = directories.filter((directory) => existsSync5(directory));
@@ -109360,7 +109376,7 @@ function repository(environ = process.env) {
 
 // src/actions/review.ts
 import { existsSync as existsSync9, mkdirSync as mkdirSync4, readdirSync as readdirSync3, readFileSync as readFileSync10, realpathSync, rmSync, statSync as statSync3, writeFileSync as writeFileSync8 } from "node:fs";
-import { dirname as dirname5, join as join9, resolve as resolve3 } from "node:path";
+import { dirname as dirname6, join as join9, resolve as resolve3 } from "node:path";
 
 // src/harness/claude.ts
 import { randomUUID as randomUUID4 } from "node:crypto";
@@ -109672,7 +109688,7 @@ function parse5(args, options) {
 }
 
 // src/harness/claude.ts
-var CREDENTIALS = ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX"];
+var CREDENTIALS = [...CLAUDE, "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX"];
 var COMPACT = "/compact Keep what the next review of this pull request needs: your understanding of the change, each check you ran and how to run it again, and every finding and decision you raised with its id and state. Drop the raw output of tools.";
 function claudeHome(environ) {
   return environ.CLAUDE_CONFIG_DIR || join6(homedir(), ".claude");
@@ -110167,7 +110183,7 @@ async function prepare2(rt) {
       }
     }
     if (await runCommand(rt, "codex", ["login", "status"], "ignore") === 0) return 0;
-    const key = rt.environ.OPENAI_API_KEY || rt.environ.CODEX_API_KEY;
+    const key = CODEX.map((name) => rt.environ[name]).find(Boolean);
     if (key && await runCommand(rt, "codex", ["login", "--with-api-key"], { input: key }) === 0) return 0;
   } catch (error2) {
     if (!isOsError(error2)) throw error2;
@@ -110293,35 +110309,23 @@ function createExternalAdapter(path16, deps = {}) {
 // src/harness/opencode.ts
 import { closeSync as closeSync3, existsSync as existsSync8, mkdirSync as mkdirSync3, openSync as openSync3, readFileSync as readFileSync9, writeFileSync as writeFileSync7, writeSync as writeSync3 } from "node:fs";
 import { homedir as homedir3 } from "node:os";
-import { join as join8 } from "node:path";
-var CREDENTIALS2 = [
-  "ANTHROPIC_API_KEY",
-  "OPENAI_API_KEY",
-  "OPENCODE_API_KEY",
-  "OPENROUTER_API_KEY",
-  "GEMINI_API_KEY",
-  "GOOGLE_GENERATIVE_AI_API_KEY",
-  "FIREWORKS_API_KEY",
-  "GROQ_API_KEY",
-  "XAI_API_KEY",
-  "DEEPSEEK_API_KEY",
-  "MOONSHOT_API_KEY"
-];
+import { dirname as dirname5, join as join8 } from "node:path";
+var CREDENTIALS2 = OPENCODE;
 var PACKAGE = "@opencode/cli";
 function opencodeData(environ) {
   return join8(environ.XDG_DATA_HOME || join8(homedir3(), ".local", "share"), "opencode");
 }
-function reviewData(environ) {
-  return join8(opencodeData(environ), "review");
-}
 function sessionPath3(repo, number, environ) {
   return sessionRecordPath(opencodeData(environ), repo, number);
 }
+function transcriptPath(repo, number, environ) {
+  return sessionPath3(repo, number, environ).replace(/\.json$/, ".transcript.json");
+}
 function stateDirs3(environ) {
-  return [reviewData(environ), join8(opencodeData(environ), "review-sessions")];
+  return [join8(opencodeData(environ), "review-sessions")];
 }
 function childEnvironment(environ, rql) {
-  const env = { ...environ, OPENCODE_DB: join8(reviewData(environ), "opencode.db") };
+  const env = { ...environ };
   if (rql) {
     env.OPENCODE_CONFIG_CONTENT = JSON.stringify({
       mcp: { repoql: { type: "local", command: [rql, "mcp"], codemode: false } }
@@ -110364,7 +110368,7 @@ async function capture(rt, args, env) {
   const out = collect(child2.stdout);
   const err = collect(child2.stderr);
   const [code] = await Promise.all([exited(child2), out.done, err.done]);
-  return { code, text: out.text() + err.text() };
+  return { code, stdout: out.text(), text: out.text() + err.text() };
 }
 async function sessionExists(sessionId, rt, env) {
   try {
@@ -110374,12 +110378,37 @@ async function sessionExists(sessionId, rt, env) {
     return false;
   }
 }
+async function restoreSession(sessionId, transcript, rt, env) {
+  if (await sessionExists(sessionId, rt, env)) return sessionId;
+  if (!existsSync8(transcript)) return null;
+  try {
+    const imported = await capture(rt, ["session", "import", transcript, "--directory", rt.cwd(), "--standalone"], env);
+    const id = /Imported session: ([A-Za-z0-9][A-Za-z0-9_-]*)/.exec(imported.text)?.[1] ?? sessionId;
+    return imported.code === 0 && await sessionExists(id, rt, env) ? id : null;
+  } catch (error2) {
+    if (!isOsError(error2)) throw error2;
+    return null;
+  }
+}
+async function keepSession(sessionId, transcript, rt, env) {
+  try {
+    const exported = await capture(rt, ["session", "export", sessionId, "--standalone"], env);
+    if (exported.code === 0 && exported.stdout.trim()) {
+      mkdirSync3(dirname5(transcript), { recursive: true });
+      writeFileSync7(transcript, exported.stdout, "utf8");
+    } else {
+      rt.emit("::warning::The opencode session could not be exported; the next review on another runner starts a new one.");
+    }
+  } catch (error2) {
+    if (!isOsError(error2)) throw error2;
+    rt.emit(`::warning::The opencode session could not be exported: ${errorText(error2)}`);
+  }
+}
 async function execReview3(args, prompt, path16, previous, resume, rt) {
   const command = ["run", "--standalone", "--format", "json", "--auto"];
   if (resume) command.push("--session", previous.session_id);
   command.push(...args.agentArgs);
   unlinkMissingOk(args.record);
-  mkdirSync3(reviewData(rt.environ), { recursive: true });
   const child2 = rt.spawn("opencode", command, {
     cwd: rt.cwd(),
     env: childEnvironment(rt.environ, args.rql),
@@ -110458,13 +110487,17 @@ async function run4(args, rt) {
   const continuing = previous !== null && !args.fresh;
   if (continuing) session = "continued";
   let calls = 0;
+  const transcript = transcriptPath(args.repo, args.pr, rt.environ);
+  const env = childEnvironment(rt.environ);
   try {
     writeFileSync7(args.events, "", "utf8");
     if (continuing) {
-      if (!await sessionExists(previous.session_id, rt, childEnvironment(rt.environ))) {
-        rt.emit("::warning::The earlier opencode session could not be restored: opencode no longer holds it.");
+      const held = await restoreSession(previous.session_id, transcript, rt, env);
+      if (held === null) {
+        rt.emit("::warning::The earlier opencode session could not be restored: opencode no longer holds it, and no export of it was kept.");
         session = "lost";
       } else {
+        previous = { ...previous, session_id: held };
         const prompt2 = readFileSync9(args.again, "utf8").replaceAll("{last_head}", lastHead || "unknown");
         let code2, completed;
         [code2, completed, calls] = await execReview3(args, prompt2, path16, previous, true, rt);
@@ -110481,6 +110514,12 @@ async function run4(args, rt) {
     rt.emit(`::warning::Could not run the opencode review: ${errorText(error2)}`);
     return 1;
   } finally {
+    try {
+      const kept = existsSync8(path16) ? readSession(path16) : null;
+      if (kept) await keepSession(kept.session_id, transcript, rt, env);
+    } catch (error2) {
+      if (!isOsError(error2) && !isValueError(error2)) throw error2;
+    }
     writeJson(args.sight, { session, last_head: lastHead, repoql_calls: calls });
   }
 }
@@ -110525,6 +110564,7 @@ async function archive3(repo, number, rt) {
   } finally {
     try {
       unlinkMissingOk(path16);
+      unlinkMissingOk(transcriptPath(repo, number, rt.environ));
     } catch (error2) {
       if (!isOsError(error2)) throw error2;
       rt.emit(`::warning::Could not delete the opencode session record: ${errorText(error2)}`);
@@ -110550,7 +110590,7 @@ function createOpencodeAdapter(deps = {}) {
 // src/actions/review.ts
 var PACK = (() => {
   let directory = import.meta.dirname;
-  while (!existsSync9(join9(directory, "record.schema.json")) && dirname5(directory) !== directory) directory = dirname5(directory);
+  while (!existsSync9(join9(directory, "record.schema.json")) && dirname6(directory) !== directory) directory = dirname6(directory);
   return directory;
 })();
 function adapterFor(agent, workspace) {
@@ -110561,7 +110601,7 @@ function adapterFor(agent, workspace) {
   if (!existsSync9(path16)) throw new Error(`The agent input is '${agent}'. Use claude, codex, opencode, or the path of an adapter script in the checkout.`);
   return createExternalAdapter(path16, {});
 }
-async function restoreSession(github, token, name, directories, temp) {
+async function restoreSession2(github, token, name, directories, temp) {
   const repo = repository();
   const listed = await github.paginate(`repos/${repo.full}/actions/artifacts?name=${encodeURIComponent(name)}&per_page=100`, "artifacts");
   const newest = listed.filter((artifact) => !artifact.expired).sort((a, b) => a.created_at.localeCompare(b.created_at)).pop();
@@ -110625,7 +110665,7 @@ async function review(environ = process.env) {
     if (store === "artifact") {
       await group("Restore the reviewer's session", async () => {
         try {
-          await restoreSession(github, token, `review-session-${name}-${pr}`, directories, temp);
+          await restoreSession2(github, token, `review-session-${name}-${pr}`, directories, temp);
         } catch (error2) {
           warning(`The earlier session could not be restored; the reviewer starts a new one. ${String(error2)}`);
         }
@@ -110885,7 +110925,7 @@ import * as path12 from "path";
 import * as path8 from "path";
 import assert from "assert";
 var IS_WINDOWS3 = process.platform === "win32";
-function dirname7(p) {
+function dirname8(p) {
   p = safeTrimTrailingSeparator(p);
   if (IS_WINDOWS3 && /^\\\\[^\\]+(\\[^\\]+)?$/.test(p)) {
     return p;
@@ -110999,14 +111039,14 @@ function getSearchPaths(patterns) {
     }
     let foundAncestor = false;
     let tempKey = key;
-    let parent = dirname7(tempKey);
+    let parent = dirname8(tempKey);
     while (parent !== tempKey) {
       if (searchPathMap[parent]) {
         foundAncestor = true;
         break;
       }
       tempKey = parent;
-      parent = dirname7(tempKey);
+      parent = dirname8(tempKey);
     }
     if (!foundAncestor) {
       result.push(pattern.searchPath);
@@ -112923,12 +112963,12 @@ var Path = class {
         this.segments = itemPath.split(path10.sep);
       } else {
         let remaining = itemPath;
-        let dir = dirname7(remaining);
+        let dir = dirname8(remaining);
         while (dir !== remaining) {
           const basename8 = path10.basename(remaining);
           this.segments.unshift(basename8);
           remaining = dir;
-          dir = dirname7(remaining);
+          dir = dirname8(remaining);
         }
         this.segments.unshift(remaining);
       }
@@ -112940,7 +112980,7 @@ var Path = class {
         segment = normalizeSeparators2(itemPath[i]);
         if (i === 0 && hasRoot(segment)) {
           segment = safeTrimTrailingSeparator(segment);
-          assert2(segment === dirname7(segment), `Parameter 'itemPath' root segment contains information for multiple segments`);
+          assert2(segment === dirname8(segment), `Parameter 'itemPath' root segment contains information for multiple segments`);
           this.segments.push(segment);
         } else {
           assert2(!segment.includes(path10.sep), `Parameter 'itemPath' contains unexpected path separators`);
@@ -113031,7 +113071,7 @@ var Pattern = class _Pattern {
    */
   partialMatch(itemPath) {
     itemPath = safeTrimTrailingSeparator(itemPath);
-    if (dirname7(itemPath) === itemPath) {
+    if (dirname8(itemPath) === itemPath) {
       return this.rootRegExp.test(itemPath);
     }
     return this.minimatch.matchOne(itemPath.split(IS_WINDOWS6 ? /\\+/ : /\/+/), this.minimatch.set[0], true);
