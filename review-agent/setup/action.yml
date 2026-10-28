@@ -1,0 +1,44 @@
+name: RepoQL review — setup
+description: >
+  Resolve the pull request, check out its head with full history, install rql,
+  and serve the checkout until semantic search is ready, so a reviewer can use
+  RepoQL from its first call. After the job, stop the host and keep the index.
+
+inputs:
+  pr:
+    description: The pull request to review. Defaults to the one the event is about.
+    default: ${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr }}
+  fresh:
+    description: Review with a new session, with no memory of the earlier reviews. A `<command> fresh` comment also asks for one.
+    default: 'false'
+  command:
+    description: The comment that asks for a review. Only used to read `<command> fresh`.
+    default: /review
+  rql-version:
+    description: The rql release to install, such as 1.14.2. Defaults to the latest. An rql already on PATH is used as it is.
+    default: ''
+  cache-index:
+    description: Keep the RepoQL index between runs in the Actions cache, so a review does not index cold.
+    default: 'true'
+  ready-timeout-minutes:
+    description: How long to wait for semantic search to become ready.
+    default: '30'
+  token:
+    description: The token that reads the pull request and checks it out. The rql host clones imports with it.
+    default: ${{ github.token }}
+
+outputs:
+  pr:
+    description: The pull request number.
+  head-sha:
+    description: The head commit under review.
+  base-ref:
+    description: The branch the pull request merges into.
+  rql:
+    description: The rql binary that serves the checkout.
+
+runs:
+  using: node24
+  main: main.js
+  post: post.js
+  post-if: always()

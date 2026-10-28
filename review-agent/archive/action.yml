@@ -1,0 +1,22 @@
+name: RepoQL review — archive
+description: >
+  Forget the reviewer's session for a closed pull request: its record and
+  transcript on the runner, and its session artifacts.
+
+inputs:
+  agent:
+    description: The agent the review action used — `claude`, `codex`, or the path of your adapter.
+    default: claude
+  pr:
+    description: The pull request number.
+    default: ${{ github.event.pull_request.number }}
+  session-store:
+    description: The review action's session-store.
+    default: artifact
+  token:
+    description: A token with actions write, to delete the session artifacts.
+    default: ${{ github.token }}
+
+runs:
+  using: node24
+  main: main.js

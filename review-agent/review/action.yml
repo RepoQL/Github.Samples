@@ -1,0 +1,59 @@
+name: RepoQL review — review
+description: >
+  Run one review turn with the agent you choose, under the review kata, on the
+  checkout the setup action served. Requires that the reviewer used RepoQL,
+  renders its record into a review plan, redacts credentials, and uploads the
+  plan for the publish action. Writes nothing to the pull request.
+
+inputs:
+  agent:
+    description: >
+      The harness that reviews: `claude`, `codex`, or the path of an adapter
+      of your own in the checkout that takes the same commands (see the README).
+    default: claude
+  model:
+    description: The model to review with. Empty for the harness's default.
+    default: ''
+  agent-args:
+    description: More arguments for the harness, one per line.
+    default: ''
+  instructions:
+    description: Text added to the reviewer's instructions, such as how to build and test this repository.
+    default: ''
+  kata:
+    description: A directory holding SKILL.md and record.md, to review under a kata of your own.
+    default: ''
+  prompts:
+    description: A directory holding first.md, again.md and environment.md, to replace the shipped prompts.
+    default: ''
+  session-store:
+    description: >
+      Where the reviewer's session lives between reviews of the same pull
+      request: `artifact` (a workflow artifact per pull request, scrubbed of
+      credentials, for hosted runners), `runner` (the runner's home
+      directory, for self-hosted runners), or `none` (a new session every
+      review).
+    default: artifact
+  session-retention-days:
+    description: How long a session artifact is kept. A pull request idle for longer starts a new session.
+    default: '30'
+  redact:
+    description: More secrets to scrub from everything uploaded, one per line. The usual agent and rql keys are always scrubbed.
+    default: ''
+  token:
+    description: The token the reviewer reads the pull request with. Give it read permissions only.
+    default: ${{ github.token }}
+
+outputs:
+  pr:
+    description: The pull request number.
+  head-sha:
+    description: The head commit that was reviewed.
+  artifact:
+    description: The artifact holding the review plan, for the publish action.
+  verdict:
+    description: approve, request_changes, needs_decision, or undetermined.
+
+runs:
+  using: node24
+  main: main.js

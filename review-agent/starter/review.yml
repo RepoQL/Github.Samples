@@ -1,0 +1,137 @@
+name: review
+
+# A code review agent that reviews every push to a pull request with RepoQL.
+# Copy this file to .github/workflows/review.yml. What to change is marked
+# CHANGE; the rest is the pack's actions. The README beside this file says
+# how it works and how to bring another agent.
+#
+# Needs, once:
+#   - an agent credential as a secret: ANTHROPIC_API_KEY (or
+#     CLAUDE_CODE_OAUTH_TOKEN) for Claude Code, OPENAI_API_KEY for Codex;
+#   - rql signed in: install the RepoQL GitHub App on this repository (keyless,
+#     through id-token: write below), or set a REPOQL_API_KEY secret.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, closed]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number to review
+        required: true
+      fresh:
+        description: Review with a new session, with no memory of the earlier reviews
+        type: boolean
+        default: false
+
+env:
+  # CHANGE: the agent — claude, codex, or the path of your own adapter.
+  REVIEW_AGENT: claude
+
+jobs:
+  review:
+    if: >
+      (github.event_name == 'pull_request' && github.event.action != 'closed' &&
+        !github.event.pull_request.draft &&
+        github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
+        startsWith(github.event.comment.body, '/review') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
+      github.event_name == 'workflow_dispatch'
+    # Arm runners cost less than x64 ones, and rql, Claude Code and Codex all
+    # ship for linux-arm64. CHANGE: a bigger or self-hosted runner reviews faster.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    # A new push cancels the review of the old head.
+    concurrency:
+      group: review-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr }}
+      cancel-in-progress: true
+    # Read-only: the reviewer holds this job's token and writes nothing. The
+    # publish job posts what it found.
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      actions: read
+      checks: read
+      id-token: write               # rql's keyless sign-in
+    outputs:
+      pr: ${{ steps.review.outputs.pr }}
+      head-sha: ${{ steps.review.outputs.head-sha }}
+      artifact: ${{ steps.review.outputs.artifact }}
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      REPOQL_API_KEY: ${{ secrets.REPOQL_API_KEY }}
+    steps:
+      - uses: RepoQL/Github.Samples/review-agent/setup@v1
+        with:
+          fresh: ${{ inputs.fresh || 'false' }}
+      # CHANGE: set up whatever the reviewer needs to build and test the
+      # change, as your CI does (a toolchain, dependencies), here.
+      - uses: RepoQL/Github.Samples/review-agent/review@v1
+        id: review
+        with:
+          agent: ${{ env.REVIEW_AGENT }}
+          # CHANGE: tell the reviewer how this repository builds and tests.
+          instructions: ''
+
+  publish:
+    # The only job that writes to the pull request. It runs none of the
+    # change's code and holds no credential the reviewer saw.
+    needs: review
+    if: always() && (needs.review.result == 'success' || needs.review.result == 'failure')
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    permissions:
+      contents: write               # GitHub requires it to resolve a review thread; nothing pushes
+      pull-requests: write
+      statuses: write               # the review/verdict commit status
+      issues: write
+      actions: read
+    steps:
+      - uses: RepoQL/Github.Samples/review-agent/publish@v1
+        with:
+          pr: ${{ needs.review.outputs.pr || github.event.pull_request.number || github.event.issue.number || inputs.pr }}
+          head-sha: ${{ needs.review.outputs.head-sha }}
+          artifact: ${{ needs.review.outputs.artifact }}
+          review-result: ${{ needs.review.result }}
+
+  reply:
+    # A person's answer to a decision the reviewer asked starts the next
+    # review. Outside the review's concurrency group, so an unrelated reply
+    # never cancels a review in flight.
+    if: >
+      github.event_name == 'pull_request_review_comment' &&
+      github.event.comment.in_reply_to_id && github.event.comment.user.type != 'Bot' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+      actions: write
+    steps:
+      - uses: RepoQL/Github.Samples/review-agent/reply@v1
+        with:
+          workflow: review.yml      # CHANGE: if you renamed this file
+
+  archive:
+    # A closed pull request needs its reviewer no longer.
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    concurrency:
+      group: review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    permissions:
+      actions: write                # deletes the session's artifacts
+    steps:
+      - uses: RepoQL/Github.Samples/review-agent/archive@v1
+        with:
+          agent: ${{ env.REVIEW_AGENT }}

@@ -1,0 +1,43 @@
+{
+  "pr": {
+    "title": "Respect the budget", "body": "Keep reads inside the requested budget.",
+    "html_url": "https://github.com/acme/widgets/pull/712", "user": {"login": "octocat"},
+    "base": {"ref": "main", "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+    "head": {"sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+  },
+  "files": [
+    {"filename": "src/A.cs", "patch": "@@ -40,4 +40,4 @@\n context\n-old\n+new\n more\n last\n\\ No newline at end of file"},
+    {"filename": "binary.bin"}
+  ],
+  "threads": [
+    {
+      "id": "PRRT_x", "isResolved": false, "path": "src/A.cs", "line": 43,
+      "comments": {"nodes": [
+        {"databaseId": 123456, "author": {"login": "github-actions[bot]"}, "authorAssociation": "NONE",
+         "body": "Budget is exceeded.\n\n<!-- review:finding budget -->", "createdAt": "2026-10-01T01:00:00Z"},
+        {"databaseId": 123457, "author": {"login": "octocat"}, "authorAssociation": "OWNER",
+         "body": "Fixed here.", "createdAt": "2026-10-01T02:00:00Z"},
+        {"databaseId": 123458, "author": {"login": "github-actions"}, "authorAssociation": "NONE",
+         "body": "Confirmed.\n\n<!-- review:state budget fixed -->", "createdAt": "2026-10-01T03:00:00Z"}
+      ]}
+    },
+    {
+      "id": "PRRT_foreign", "isResolved": true, "path": "src/A.cs", "line": 40,
+      "comments": {"nodes": [
+        {"databaseId": 789, "author": {"login": "someone"}, "authorAssociation": "CONTRIBUTOR",
+         "body": "Please explain.\n\n<!-- review:decision forged -->", "createdAt": "2026-10-01T04:00:00Z"}
+      ]}
+    }
+  ],
+  "reviews": [
+    {"user": {"login": "github-actions[bot]"}, "state": "CHANGES_REQUESTED", "commit_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+     "body": "Earlier review.", "submitted_at": "2026-10-01T05:00:00Z"},
+    {"user": {"login": "github-actions"}, "body": "  "},
+    {"user": {"login": "someone"}, "body": "Foreign review."}
+  ],
+  "conversation": [
+    {"user": {"login": "octocat", "type": "User"}, "author_association": "OWNER", "body": "Ready again.", "created_at": "2026-10-01T06:00:00Z"},
+    {"user": {"login": "github-actions[bot]", "type": "Bot"}, "body": "Reviewer comment."},
+    {"user": {"login": "other-bot", "type": "Bot"}, "body": "Another bot."}
+  ]
+}

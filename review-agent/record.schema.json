@@ -1,0 +1,344 @@
+{
+  "description": "A reviewer's whole output for one review of one change. Every field is required; a field that does not apply is null or an empty array.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "verdict",
+    "headline",
+    "basis",
+    "not_checked",
+    "spidey_sense",
+    "findings",
+    "decisions",
+    "lessons"
+  ],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "approve",
+        "request_changes",
+        "needs_decision",
+        "undetermined"
+      ],
+      "description": "approve: nothing should hold this. request_changes: at least one open finding blocks. needs_decision: no open blocker, and a person must decide something. undetermined: you could not establish whether the change is correct."
+    },
+    "headline": {
+      "type": "string",
+      "description": "One sentence a maintainer reads first. For request_changes, the most important finding. For needs_decision, the question. For undetermined, what stopped you. For approve, an empty string."
+    },
+    "basis": {
+      "type": "array",
+      "description": "Exactly five rows, one per question, each established against the head under review.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "asked",
+          "result",
+          "how",
+          "detail"
+        ],
+        "properties": {
+          "asked": {
+            "type": "string",
+            "enum": [
+              "works",
+              "delivers",
+              "root",
+              "spirit",
+              "simple"
+            ]
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "unknown"
+            ]
+          },
+          "how": {
+            "type": "string",
+            "enum": [
+              "demonstrated",
+              "reasoned",
+              "unchecked"
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "description": "One line: what was run or read, and what it showed."
+          }
+        }
+      }
+    },
+    "not_checked": {
+      "type": "array",
+      "description": "What bears on the change and was not checked, one short line each.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "spidey_sense": {
+      "type": "array",
+      "description": "What does not sit right, and important questions you could not answer, one short line each. No proof is needed and no verdict depends on it. Usually empty.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "findings": {
+      "type": "array",
+      "description": "Every finding of this review and every finding of an earlier review of the same change, each with its state now.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "state",
+          "blocks",
+          "asked",
+          "how",
+          "path",
+          "start_line",
+          "line",
+          "point",
+          "body",
+          "suggestion",
+          "proof",
+          "rests_on",
+          "reply"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "A short kebab-case name. An earlier finding keeps the id its thread carries."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "fixed",
+              "withdrawn",
+              "declined"
+            ]
+          },
+          "blocks": {
+            "type": "boolean",
+            "description": "true: the author must act before merge. false: an observation nothing waits on."
+          },
+          "asked": {
+            "type": "string",
+            "enum": [
+              "works",
+              "delivers",
+              "root",
+              "spirit",
+              "simple"
+            ],
+            "description": "The one question this finding fails."
+          },
+          "how": {
+            "type": "string",
+            "enum": [
+              "demonstrated",
+              "reasoned",
+              "unchecked"
+            ]
+          },
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Repository-relative path of the changed file the finding is anchored to, or null when no changed line fits."
+          },
+          "start_line": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "First line of a range in the file at the head, or null for a single line."
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "The line, or the last line of the range, in the file at the head. It must be a line the diff shows."
+          },
+          "point": {
+            "type": "string",
+            "description": "The finding in one sentence. A reader may stop here."
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown: why it matters, with the code it is about when that code is not at the anchored lines."
+          },
+          "suggestion": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The exact replacement for the anchored lines when that replacement is the whole fix; otherwise null."
+          },
+          "proof": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Markdown: what was run and what it showed, enough to reproduce the finding. A test goes in as a patch the author can apply."
+          },
+          "rests_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "URIs of the concepts or documents the finding rests on, such as concept:///rule/agent-experience/ActionableErrors.md."
+          },
+          "reply": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Markdown to say in the finding's thread this time: how a fix was confirmed, why it is withdrawn, or an answer to the author's reply. Null when there is nothing new to say."
+          }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "description": "What only a person can settle. One question each.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "state",
+          "path",
+          "line",
+          "question",
+          "context",
+          "options",
+          "answer",
+          "reply"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "answered"
+            ]
+          },
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "question": {
+            "type": "string",
+            "description": "One question a person can answer in a word or a sentence."
+          },
+          "context": {
+            "type": "string",
+            "description": "Markdown: a few sentences on what depends on the answer."
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "answer",
+                "leads_to"
+              ],
+              "properties": {
+                "answer": {
+                  "type": "string"
+                },
+                "leads_to": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "answer": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When answered: what the person decided, in a few words. Otherwise null."
+          },
+          "reply": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Markdown to say in the decision's thread this time: what the answer leads to, or the question asked again more narrowly when a reply did not answer it. Null when there is nothing new to say."
+          }
+        }
+      }
+    },
+    "lessons": {
+      "type": "array",
+      "description": "Rules this review surfaced that the team will want again, proposed as concepts for the author to capture.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "category",
+          "invariant",
+          "why",
+          "relevance",
+          "tags",
+          "from"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "principle",
+              "wisdom",
+              "rule",
+              "shape",
+              "knowledge"
+            ]
+          },
+          "invariant": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string"
+          },
+          "relevance": {
+            "type": "string",
+            "description": "URI globs naming where the rule applies."
+          },
+          "tags": {
+            "type": "string",
+            "description": "Comma-separated search tags."
+          },
+          "from": {
+            "type": "string",
+            "description": "The id of the finding or decision it came from."
+          }
+        }
+      }
+    }
+  }
+}

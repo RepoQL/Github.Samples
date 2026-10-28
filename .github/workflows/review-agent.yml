@@ -1,0 +1,45 @@
+name: review-agent
+
+# The review agent (review-agent/): typecheck, test, and prove the committed
+# dist/index.js is what the sources build. Every action runs that bundle as
+# committed, with no install, so a source change that was not rebuilt would
+# ship as the old code.
+
+on:
+  pull_request:
+    paths:
+      - review-agent/**
+      - .github/workflows/review-agent.yml
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Typecheck, test, and rebuild
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: review-agent
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: review-agent/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm test
+      - name: Rebuild, and require the committed bundle to match
+        run: |
+          npm run build
+          if ! git diff --exit-code --stat -- dist; then
+            echo "::error::dist/index.js is not what the sources build. Run npm run build in review-agent and commit dist."
+            exit 1
+          fi

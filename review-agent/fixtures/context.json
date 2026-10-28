@@ -1,0 +1,16 @@
+{
+  "repo": "acme/widgets",
+  "server_url": "https://github.com",
+  "number": 712,
+  "title": "Respect the budget",
+  "description": "Keep reads inside the requested budget.",
+  "author": "octocat",
+  "base_ref": "main",
+  "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "shown": {"src/A.cs": [40, 41, 42, 43]},
+  "threads": [],
+  "reviews": [],
+  "lessons": [],
+  "conversation": []
+}

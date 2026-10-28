@@ -1,0 +1,29 @@
+name: RepoQL review — publish
+description: >
+  Publish the review the review action made as one GitHub review: the verdict,
+  a thread per finding or decision, a reply in each earlier thread whose state
+  changed, and a `review/verdict` commit status. When no review was made, say
+  so on the pull request. Runs none of the change's code.
+
+inputs:
+  pr:
+    description: The pull request number, from the review job's outputs.
+    required: true
+  head-sha:
+    description: The head commit that was reviewed, from the review job's outputs.
+    default: ''
+  artifact:
+    description: The artifact the review action uploaded, from the review job's outputs.
+    default: ''
+  review-result:
+    description: The review job's result, `needs.<job>.result`.
+    required: true
+  token:
+    description: >
+      A token with pull-requests, statuses and issues write, and contents
+      write, which GitHub requires to resolve a review thread.
+    default: ${{ github.token }}
+
+runs:
+  using: node24
+  main: main.js

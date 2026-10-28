@@ -1,0 +1,16 @@
+{
+  "verdict": "approve",
+  "headline": "",
+  "basis": [
+    {"asked": "works", "result": "pass", "how": "demonstrated", "detail": "Tests pass."},
+    {"asked": "delivers", "result": "pass", "how": "reasoned", "detail": "The requested behavior is present."},
+    {"asked": "root", "result": "pass", "how": "reasoned", "detail": "Changed where the behavior is decided."},
+    {"asked": "spirit", "result": "pass", "how": "reasoned", "detail": "Uses the existing boundary."},
+    {"asked": "simple", "result": "pass", "how": "reasoned", "detail": "One change is sufficient."}
+  ],
+  "not_checked": [],
+  "spidey_sense": [],
+  "findings": [],
+  "decisions": [],
+  "lessons": []
+}
