@@ -253,10 +253,16 @@ export async function review(environ: NodeJS.ProcessEnv = process.env): Promise<
         core.warning(`The reviewer's session could not be kept; the next review starts a new one. ${String(error)}`);
       }
     }
-    const hits = job.redact([folder], secrets);
+    // A scrubbed copy is what is uploaded: the host logs in this folder are still being written, by hosts the setup
+    // action stops after the job's last step.
+    const scrubbed = join(temp, "review-upload");
+    rmSync(scrubbed, { recursive: true, force: true });
+    const hits = job.snapshot([folder], scrubbed, secrets);
     if (hits) core.warning(`Redacted ${hits} credential occurrence(s) from the review's files.`);
+    // The plan the publish job posts, and the summary below, are the scrubbed ones too.
+    job.redact([join(folder, "plan.json"), join(folder, "record.json")], secrets);
     try {
-      await upload(artifact, listFiles(folder), folder, 14);
+      await upload(artifact, listFiles(join(scrubbed, "review")), join(scrubbed, "review"), 14);
     } catch (error) {
       core.warning(`The review could not be uploaded: ${String(error)}`);
     }

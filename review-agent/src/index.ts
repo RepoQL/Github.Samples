@@ -18,7 +18,7 @@ import { createClaudeAdapter } from "./harness/claude.js";
 import { createCodexAdapter } from "./harness/codex.js";
 import { createOpencodeAdapter } from "./harness/opencode.js";
 import type { Io } from "./io.js";
-import { redact, secretsOf } from "./job.js";
+import { redact, secretsOf, snapshot } from "./job.js";
 import { main as pullRequestMain } from "./pull-request.js";
 import { main as renderMain } from "./render.js";
 
@@ -49,8 +49,9 @@ const USAGE = `usage: review-agent <command> [arguments]
   gather  --repo O/R --pr N --out context.json --brief pull-request.md
   publish --repo O/R --pr N --plan plan.json [--dry-run]
   render  --context context.json --sight sight.json (--record record.json | --raw text) (--out plan.json | --markdown)
-  redact  <file or directory>... [--extra "more secrets, one per line"]
-          scrubs the agent, rql and GitHub credentials in the environment from the files
+  redact  <file or directory>... [--extra "more secrets, one per line"] [--into <directory>]
+          scrubs the agent, rql and GitHub credentials in the environment from the files; with --into, writes
+          scrubbed copies there and leaves the files alone, for files a process may still be writing
 
 GitHub calls use GH_TOKEN or GITHUB_TOKEN, and GITHUB_API_URL when it is set.`;
 
@@ -69,12 +70,17 @@ export async function cli(argv: string[], io: Io): Promise<number> {
     case "render":
       return renderMain(rest, io);
     case "redact": {
-      const { values, positionals } = parseArgs({ args: rest, options: { extra: { type: "string", default: "" } }, allowPositionals: true });
+      const { values, positionals } = parseArgs({
+        args: rest,
+        options: { extra: { type: "string", default: "" }, into: { type: "string" } },
+        allowPositionals: true,
+      });
       if (!positionals.length) {
         io.emit("redact needs at least one file or directory.");
         return 2;
       }
-      const hits = redact(positionals, secretsOf(io.environ, values.extra));
+      const secrets = secretsOf(io.environ, values.extra);
+      const hits = values.into ? snapshot(positionals, values.into, secrets) : redact(positionals, secrets);
       if (hits) io.emit(`::warning::Redacted ${hits} credential occurrence(s) from ${positionals.length} path(s).`);
       return 0;
     }

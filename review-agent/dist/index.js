@@ -74546,11 +74546,11 @@ var Matcher = class {
    * Restore state from snapshot.
    * @param {Object} snapshot
    */
-  restore(snapshot3) {
+  restore(snapshot4) {
     this._pathStringCache = null;
-    this.path = snapshot3.path.map((node) => ({ ...node }));
-    this.siblingStacks = snapshot3.siblingStacks.map((level) => level ? { counts: new Map(level.counts), total: level.total } : level);
-    this._keptAttrs = (snapshot3.keptAttrs || []).map((entry) => ({ ...entry }));
+    this.path = snapshot4.path.map((node) => ({ ...node }));
+    this.siblingStacks = snapshot4.siblingStacks.map((level) => level ? { counts: new Map(level.counts), total: level.total } : level);
+    this._keptAttrs = (snapshot4.keptAttrs || []).map((entry) => ({ ...entry }));
   }
   /**
    * Return the read-only {@link MatcherView} for this matcher.
@@ -100187,8 +100187,8 @@ var BlobClient = class _BlobClient extends StorageClient2 {
    * @param snapshot - The snapshot timestamp.
    * @returns A new BlobClient object identical to the source but with the specified snapshot timestamp
    */
-  withSnapshot(snapshot3) {
-    return new _BlobClient(setURLParameter2(this.url, URLConstants2.Parameters.SNAPSHOT, snapshot3.length === 0 ? void 0 : snapshot3), this.pipeline, this.blobClientConfig);
+  withSnapshot(snapshot4) {
+    return new _BlobClient(setURLParameter2(this.url, URLConstants2.Parameters.SNAPSHOT, snapshot4.length === 0 ? void 0 : snapshot4), this.pipeline, this.blobClientConfig);
   }
   /**
    * Creates a new BlobClient object pointing to a version of this blob.
@@ -101227,8 +101227,8 @@ var AppendBlobClient = class _AppendBlobClient extends BlobClient {
    * @param snapshot - The snapshot timestamp.
    * @returns A new AppendBlobClient object identical to the source but with the specified snapshot timestamp.
    */
-  withSnapshot(snapshot3) {
-    return new _AppendBlobClient(setURLParameter2(this.url, URLConstants2.Parameters.SNAPSHOT, snapshot3.length === 0 ? void 0 : snapshot3), this.pipeline, this.blobClientConfig);
+  withSnapshot(snapshot4) {
+    return new _AppendBlobClient(setURLParameter2(this.url, URLConstants2.Parameters.SNAPSHOT, snapshot4.length === 0 ? void 0 : snapshot4), this.pipeline, this.blobClientConfig);
   }
   /**
    * Creates a 0-length append blob. Call AppendBlock to append data to an append blob.
@@ -101510,8 +101510,8 @@ var BlockBlobClient = class _BlockBlobClient extends BlobClient {
    * @param snapshot - The snapshot timestamp.
    * @returns A new BlockBlobClient object identical to the source but with the specified snapshot timestamp.
    */
-  withSnapshot(snapshot3) {
-    return new _BlockBlobClient(setURLParameter2(this.url, URLConstants2.Parameters.SNAPSHOT, snapshot3.length === 0 ? void 0 : snapshot3), this.pipeline, this.blobClientConfig);
+  withSnapshot(snapshot4) {
+    return new _BlockBlobClient(setURLParameter2(this.url, URLConstants2.Parameters.SNAPSHOT, snapshot4.length === 0 ? void 0 : snapshot4), this.pipeline, this.blobClientConfig);
   }
   /**
    * ONLY AVAILABLE IN NODE.JS RUNTIME.
@@ -102123,8 +102123,8 @@ var PageBlobClient = class _PageBlobClient extends BlobClient {
    * @param snapshot - The snapshot timestamp.
    * @returns A new PageBlobClient object identical to the source but with the specified snapshot timestamp.
    */
-  withSnapshot(snapshot3) {
-    return new _PageBlobClient(setURLParameter2(this.url, URLConstants2.Parameters.SNAPSHOT, snapshot3.length === 0 ? void 0 : snapshot3), this.pipeline, this.blobClientConfig);
+  withSnapshot(snapshot4) {
+    return new _PageBlobClient(setURLParameter2(this.url, URLConstants2.Parameters.SNAPSHOT, snapshot4.length === 0 ? void 0 : snapshot4), this.pipeline, this.blobClientConfig);
   }
   /**
    * Creates a page blob of the specified length. Call uploadPages to upload data
@@ -108299,8 +108299,8 @@ function githubFromEnvironment(environ = process.env, token) {
 }
 
 // src/job.ts
-import { existsSync as existsSync5, lstatSync as lstatSync2, mkdirSync, readdirSync, readFileSync as readFileSync3, writeFileSync as writeFileSync2 } from "node:fs";
-import { dirname as dirname3, isAbsolute, join as join4, relative as relative2, sep as sep4 } from "node:path";
+import { lstatSync as lstatSync2, mkdirSync, readdirSync, readFileSync as readFileSync3, writeFileSync as writeFileSync2 } from "node:fs";
+import { basename as basename5, dirname as dirname3, isAbsolute, join as join4, relative as relative2, sep as sep4 } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 
 // src/credentials.ts
@@ -108912,37 +108912,52 @@ function filesUnder(path16) {
   if (!stat2.isDirectory()) return [];
   return readdirSync(path16).sort().flatMap((name) => filesUnder(join4(path16, name)));
 }
+function usableSecrets(secrets) {
+  return [...new Set(secrets.filter((secret) => secret && secret.length >= 8))].sort((a, b) => b.length - a.length);
+}
+function scrub(bytes, secrets) {
+  const usable = usableSecrets(secrets);
+  let hits = 0;
+  if (bytes.includes(0)) {
+    const masked = Buffer.from(bytes);
+    for (const secret of usable) {
+      const needle = Buffer.from(secret, "utf8");
+      for (let at = masked.indexOf(needle); at !== -1; at = masked.indexOf(needle, at + needle.length)) {
+        masked.fill(42, at, at + needle.length);
+        hits += 1;
+      }
+    }
+    return { bytes: masked, hits };
+  }
+  let text2 = bytes.toString("utf8");
+  for (const secret of usable) {
+    const parts = text2.split(secret);
+    hits += parts.length - 1;
+    text2 = parts.join("[REDACTED]");
+  }
+  return { bytes: hits ? Buffer.from(text2, "utf8") : bytes, hits };
+}
 function redact(paths, secrets) {
-  const usable = [...new Set(secrets.filter((secret) => secret && secret.length >= 8))].sort((a, b) => b.length - a.length);
-  if (!usable.length) return 0;
+  if (!usableSecrets(secrets).length) return 0;
   let replaced = 0;
   for (const file of paths.flatMap(filesUnder)) {
-    const bytes = readFileSync3(file);
-    if (bytes.includes(0)) {
-      let hits2 = 0;
-      for (const secret of usable) {
-        const needle = Buffer.from(secret, "utf8");
-        for (let at = bytes.indexOf(needle); at !== -1; at = bytes.indexOf(needle, at + needle.length)) {
-          bytes.fill(42, at, at + needle.length);
-          hits2 += 1;
-        }
-      }
-      if (hits2) {
-        writeFileSync2(file, bytes);
-        replaced += hits2;
-      }
-      continue;
+    const scrubbed = scrub(readFileSync3(file), secrets);
+    if (scrubbed.hits) {
+      writeFileSync2(file, scrubbed.bytes);
+      replaced += scrubbed.hits;
     }
-    let text2 = bytes.toString("utf8");
-    let hits = 0;
-    for (const secret of usable) {
-      const parts = text2.split(secret);
-      hits += parts.length - 1;
-      text2 = parts.join("[REDACTED]");
-    }
-    if (hits) {
-      writeFileSync2(file, text2, "utf8");
-      replaced += hits;
+  }
+  return replaced;
+}
+function snapshot2(paths, into, secrets) {
+  let replaced = 0;
+  for (const path16 of paths) {
+    for (const file of filesUnder(path16)) {
+      const target = join4(into, basename5(path16), relative2(path16, file));
+      const scrubbed = scrub(readFileSync3(file), secrets);
+      mkdirSync(dirname3(target), { recursive: true });
+      writeFileSync2(target, scrubbed.bytes);
+      replaced += scrubbed.hits;
     }
   }
   return replaced;
@@ -108951,13 +108966,16 @@ function secretsOf(environ, extra = "") {
   return [...credentialValues(environ), ...extra.split(/\r?\n/)].map((secret) => secret.trim());
 }
 function packState(out, directories, secrets, root = "/") {
-  const present2 = directories.filter((directory) => existsSync5(directory));
-  const hits = redact(present2, secrets);
-  const files = present2.flatMap(filesUnder).map((file) => ({
-    path: relative2(root, file).split(sep4).join("/"),
-    mode: lstatSync2(file).mode & 511,
-    content: readFileSync3(file).toString("base64")
-  }));
+  let hits = 0;
+  const files = directories.flatMap(filesUnder).map((file) => {
+    const scrubbed = scrub(readFileSync3(file), secrets);
+    hits += scrubbed.hits;
+    return {
+      path: relative2(root, file).split(sep4).join("/"),
+      mode: lstatSync2(file).mode & 511,
+      content: scrubbed.bytes.toString("base64")
+    };
+  });
   mkdirSync(dirname3(out), { recursive: true });
   writeFileSync2(out, gzipSync(JSON.stringify({ version: 1, files })));
   return hits;
@@ -110244,10 +110262,10 @@ function createCodexAdapter(deps = {}) {
 }
 
 // src/harness/external.ts
-import { basename as basename5, extname as extname3 } from "node:path";
+import { basename as basename6, extname as extname3 } from "node:path";
 var NODE = /* @__PURE__ */ new Set([".js", ".mjs", ".cjs", ".ts"]);
 function externalName(path16) {
-  return basename5(path16).replace(/_session\.[^.]*$/, "").replace(/\.[^.]*$/, "").replace(/[^A-Za-z0-9_-]/g, "-");
+  return basename6(path16).replace(/_session\.[^.]*$/, "").replace(/\.[^.]*$/, "").replace(/[^A-Za-z0-9_-]/g, "-");
 }
 function interpreter(path16) {
   const extension = extname3(path16).toLowerCase();
@@ -110795,10 +110813,13 @@ async function review(environ = process.env) {
         warning(`The reviewer's session could not be kept; the next review starts a new one. ${String(error2)}`);
       }
     }
-    const hits = redact([folder], secrets);
+    const scrubbed = join9(temp, "review-upload");
+    rmSync(scrubbed, { recursive: true, force: true });
+    const hits = snapshot2([folder], scrubbed, secrets);
     if (hits) warning(`Redacted ${hits} credential occurrence(s) from the review's files.`);
+    redact([join9(folder, "plan.json"), join9(folder, "record.json")], secrets);
     try {
-      await upload(artifact, listFiles(folder), folder, 14);
+      await upload(artifact, listFiles(join9(scrubbed, "review")), join9(scrubbed, "review"), 14);
     } catch (error2) {
       warning(`The review could not be uploaded: ${String(error2)}`);
     }
@@ -113013,8 +113034,8 @@ var Path = class {
         let remaining = itemPath;
         let dir = dirname8(remaining);
         while (dir !== remaining) {
-          const basename8 = path10.basename(remaining);
-          this.segments.unshift(basename8);
+          const basename9 = path10.basename(remaining);
+          this.segments.unshift(basename9);
           remaining = dir;
           dir = dirname8(remaining);
         }
@@ -123401,7 +123422,7 @@ var delimiter5 = {
     }
   }
 };
-var snapshot2 = {
+var snapshot3 = {
   parameterPath: ["options", "snapshot"],
   mapper: {
     serializedName: "snapshot",
@@ -125715,7 +125736,7 @@ var downloadOperationSpec2 = {
   },
   queryParameters: [
     timeoutInSeconds2,
-    snapshot2,
+    snapshot3,
     versionId2
   ],
   urlParameters: [url2],
@@ -125753,7 +125774,7 @@ var getPropertiesOperationSpec6 = {
   },
   queryParameters: [
     timeoutInSeconds2,
-    snapshot2,
+    snapshot3,
     versionId2
   ],
   urlParameters: [url2],
@@ -125788,7 +125809,7 @@ var deleteOperationSpec4 = {
   },
   queryParameters: [
     timeoutInSeconds2,
-    snapshot2,
+    snapshot3,
     versionId2,
     blobDeleteType2
   ],
@@ -125902,7 +125923,7 @@ var setImmutabilityPolicyOperationSpec2 = {
   },
   queryParameters: [
     timeoutInSeconds2,
-    snapshot2,
+    snapshot3,
     versionId2,
     comp122
   ],
@@ -125932,7 +125953,7 @@ var deleteImmutabilityPolicyOperationSpec2 = {
   },
   queryParameters: [
     timeoutInSeconds2,
-    snapshot2,
+    snapshot3,
     versionId2,
     comp122
   ],
@@ -125959,7 +125980,7 @@ var setLegalHoldOperationSpec2 = {
   },
   queryParameters: [
     timeoutInSeconds2,
-    snapshot2,
+    snapshot3,
     versionId2,
     comp132
   ],
@@ -126318,7 +126339,7 @@ var setTierOperationSpec2 = {
   },
   queryParameters: [
     timeoutInSeconds2,
-    snapshot2,
+    snapshot3,
     versionId2,
     comp162
   ],
@@ -126387,7 +126408,7 @@ var queryOperationSpec2 = {
   requestBody: queryRequest2,
   queryParameters: [
     timeoutInSeconds2,
-    snapshot2,
+    snapshot3,
     comp172
   ],
   urlParameters: [url2],
@@ -126426,7 +126447,7 @@ var getTagsOperationSpec2 = {
   },
   queryParameters: [
     timeoutInSeconds2,
-    snapshot2,
+    snapshot3,
     versionId2,
     comp182
   ],
@@ -126786,7 +126807,7 @@ var getPageRangesOperationSpec2 = {
     timeoutInSeconds2,
     marker2,
     maxPageSize2,
-    snapshot2,
+    snapshot3,
     comp202
   ],
   urlParameters: [url2],
@@ -126822,7 +126843,7 @@ var getPageRangesDiffOperationSpec2 = {
     timeoutInSeconds2,
     marker2,
     maxPageSize2,
-    snapshot2,
+    snapshot3,
     comp202,
     prevsnapshot2
   ],
@@ -127496,7 +127517,7 @@ var getBlockListOperationSpec2 = {
   },
   queryParameters: [
     timeoutInSeconds2,
-    snapshot2,
+    snapshot3,
     comp252,
     listType2
   ],
@@ -131311,8 +131332,8 @@ var BlobClient2 = class _BlobClient extends StorageClient4 {
    * @param snapshot - The snapshot timestamp.
    * @returns A new BlobClient object identical to the source but with the specified snapshot timestamp
    */
-  withSnapshot(snapshot3) {
-    return new _BlobClient(setURLParameter3(this.url, URLConstants3.Parameters.SNAPSHOT, snapshot3.length === 0 ? void 0 : snapshot3), this.pipeline);
+  withSnapshot(snapshot4) {
+    return new _BlobClient(setURLParameter3(this.url, URLConstants3.Parameters.SNAPSHOT, snapshot4.length === 0 ? void 0 : snapshot4), this.pipeline);
   }
   /**
    * Creates a new BlobClient object pointing to a version of this blob.
@@ -132333,8 +132354,8 @@ var AppendBlobClient2 = class _AppendBlobClient extends BlobClient2 {
    * @param snapshot - The snapshot timestamp.
    * @returns A new AppendBlobClient object identical to the source but with the specified snapshot timestamp.
    */
-  withSnapshot(snapshot3) {
-    return new _AppendBlobClient(setURLParameter3(this.url, URLConstants3.Parameters.SNAPSHOT, snapshot3.length === 0 ? void 0 : snapshot3), this.pipeline);
+  withSnapshot(snapshot4) {
+    return new _AppendBlobClient(setURLParameter3(this.url, URLConstants3.Parameters.SNAPSHOT, snapshot4.length === 0 ? void 0 : snapshot4), this.pipeline);
   }
   /**
    * Creates a 0-length append blob. Call AppendBlock to append data to an append blob.
@@ -132609,8 +132630,8 @@ var BlockBlobClient2 = class _BlockBlobClient extends BlobClient2 {
    * @param snapshot - The snapshot timestamp.
    * @returns A new BlockBlobClient object identical to the source but with the specified snapshot timestamp.
    */
-  withSnapshot(snapshot3) {
-    return new _BlockBlobClient(setURLParameter3(this.url, URLConstants3.Parameters.SNAPSHOT, snapshot3.length === 0 ? void 0 : snapshot3), this.pipeline);
+  withSnapshot(snapshot4) {
+    return new _BlockBlobClient(setURLParameter3(this.url, URLConstants3.Parameters.SNAPSHOT, snapshot4.length === 0 ? void 0 : snapshot4), this.pipeline);
   }
   /**
    * ONLY AVAILABLE IN NODE.JS RUNTIME.
@@ -133216,8 +133237,8 @@ var PageBlobClient2 = class _PageBlobClient extends BlobClient2 {
    * @param snapshot - The snapshot timestamp.
    * @returns A new PageBlobClient object identical to the source but with the specified snapshot timestamp.
    */
-  withSnapshot(snapshot3) {
-    return new _PageBlobClient(setURLParameter3(this.url, URLConstants3.Parameters.SNAPSHOT, snapshot3.length === 0 ? void 0 : snapshot3), this.pipeline);
+  withSnapshot(snapshot4) {
+    return new _PageBlobClient(setURLParameter3(this.url, URLConstants3.Parameters.SNAPSHOT, snapshot4.length === 0 ? void 0 : snapshot4), this.pipeline);
   }
   /**
    * Creates a page blob of the specified length. Call uploadPages to upload data
@@ -136652,8 +136673,9 @@ var USAGE2 = `usage: review-agent <command> [arguments]
   gather  --repo O/R --pr N --out context.json --brief pull-request.md
   publish --repo O/R --pr N --plan plan.json [--dry-run]
   render  --context context.json --sight sight.json (--record record.json | --raw text) (--out plan.json | --markdown)
-  redact  <file or directory>... [--extra "more secrets, one per line"]
-          scrubs the agent, rql and GitHub credentials in the environment from the files
+  redact  <file or directory>... [--extra "more secrets, one per line"] [--into <directory>]
+          scrubs the agent, rql and GitHub credentials in the environment from the files; with --into, writes
+          scrubbed copies there and leaves the files alone, for files a process may still be writing
 
 GitHub calls use GH_TOKEN or GITHUB_TOKEN, and GITHUB_API_URL when it is set.`;
 async function cli(argv, io) {
@@ -136671,12 +136693,17 @@ async function cli(argv, io) {
     case "render":
       return main(rest, io);
     case "redact": {
-      const { values, positionals } = parseArgs4({ args: rest, options: { extra: { type: "string", default: "" } }, allowPositionals: true });
+      const { values, positionals } = parseArgs4({
+        args: rest,
+        options: { extra: { type: "string", default: "" }, into: { type: "string" } },
+        allowPositionals: true
+      });
       if (!positionals.length) {
         io.emit("redact needs at least one file or directory.");
         return 2;
       }
-      const hits = redact(positionals, secretsOf(io.environ, values.extra));
+      const secrets = secretsOf(io.environ, values.extra);
+      const hits = values.into ? snapshot2(positionals, values.into, secrets) : redact(positionals, secrets);
       if (hits) io.emit(`::warning::Redacted ${hits} credential occurrence(s) from ${positionals.length} path(s).`);
       return 0;
     }

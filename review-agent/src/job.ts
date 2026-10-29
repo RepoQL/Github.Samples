@@ -5,7 +5,7 @@
  */
 
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 
 import { credentialValues } from "./credentials.js";
@@ -101,41 +101,65 @@ function filesUnder(path: string): string[] {
     .flatMap((name) => filesUnder(join(path, name)));
 }
 
-/** Replace every secret in the files under paths; return how many occurrences were replaced. */
-export function redact(paths: string[], secrets: string[]): number {
+function usableSecrets(secrets: string[]): string[] {
   // Longest first, so a secret that contains another is replaced whole.
-  const usable = [...new Set(secrets.filter((secret) => secret && secret.length >= 8))].sort((a, b) => b.length - a.length);
-  if (!usable.length) return 0;
+  return [...new Set(secrets.filter((secret) => secret && secret.length >= 8))].sort((a, b) => b.length - a.length);
+}
+
+/** The bytes with every secret scrubbed, and how many were. */
+export function scrub(bytes: Buffer, secrets: string[]): { bytes: Buffer; hits: number } {
+  const usable = usableSecrets(secrets);
+  let hits = 0;
+  // A binary file, such as a session database, is masked at the secret's own length, so its structure survives;
+  // rewriting it as text would corrupt it.
+  if (bytes.includes(0)) {
+    const masked = Buffer.from(bytes);
+    for (const secret of usable) {
+      const needle = Buffer.from(secret, "utf8");
+      for (let at = masked.indexOf(needle); at !== -1; at = masked.indexOf(needle, at + needle.length)) {
+        masked.fill(0x2a, at, at + needle.length);
+        hits += 1;
+      }
+    }
+    return { bytes: masked, hits };
+  }
+  let text = bytes.toString("utf8");
+  for (const secret of usable) {
+    const parts = text.split(secret);
+    hits += parts.length - 1;
+    text = parts.join("[REDACTED]");
+  }
+  return { bytes: hits ? Buffer.from(text, "utf8") : bytes, hits };
+}
+
+/** Replace every secret in the files under paths, in place; return how many occurrences were replaced. */
+export function redact(paths: string[], secrets: string[]): number {
+  if (!usableSecrets(secrets).length) return 0;
   let replaced = 0;
   for (const file of paths.flatMap(filesUnder)) {
-    const bytes = readFileSync(file);
-    // A binary file, such as a session database, is masked in place at the secret's own length, so its structure
-    // survives; rewriting it as text would corrupt it.
-    if (bytes.includes(0)) {
-      let hits = 0;
-      for (const secret of usable) {
-        const needle = Buffer.from(secret, "utf8");
-        for (let at = bytes.indexOf(needle); at !== -1; at = bytes.indexOf(needle, at + needle.length)) {
-          bytes.fill(0x2a, at, at + needle.length);
-          hits += 1;
-        }
-      }
-      if (hits) {
-        writeFileSync(file, bytes);
-        replaced += hits;
-      }
-      continue;
+    const scrubbed = scrub(readFileSync(file), secrets);
+    if (scrubbed.hits) {
+      writeFileSync(file, scrubbed.bytes);
+      replaced += scrubbed.hits;
     }
-    let text = bytes.toString("utf8");
-    let hits = 0;
-    for (const secret of usable) {
-      const parts = text.split(secret);
-      hits += parts.length - 1;
-      text = parts.join("[REDACTED]");
-    }
-    if (hits) {
-      writeFileSync(file, text, "utf8");
-      replaced += hits;
+  }
+  return replaced;
+}
+
+/**
+ * Copy the files under paths into `into`, each read once and scrubbed on the way, and return how many secrets were
+ * scrubbed. A file a live process still writes can gain a secret after an in-place scrub and before an upload reads
+ * it; the copy is what is uploaded, and nothing writes to it. A file keeps its name, and a directory its tree.
+ */
+export function snapshot(paths: string[], into: string, secrets: string[]): number {
+  let replaced = 0;
+  for (const path of paths) {
+    for (const file of filesUnder(path)) {
+      const target = join(into, basename(path), relative(path, file));
+      const scrubbed = scrub(readFileSync(file), secrets);
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, scrubbed.bytes);
+      replaced += scrubbed.hits;
     }
   }
   return replaced;
@@ -156,13 +180,17 @@ interface PackedFile {
  * Paths are stored relative to root. The format holds regular files only, so nothing it restores can be a link.
  */
 export function packState(out: string, directories: string[], secrets: string[], root = "/"): number {
-  const present = directories.filter((directory) => existsSync(directory));
-  const hits = redact(present, secrets);
-  const files: PackedFile[] = present.flatMap(filesUnder).map((file) => ({
-    path: relative(root, file).split(sep).join("/"),
-    mode: lstatSync(file).mode & 0o777,
-    content: readFileSync(file).toString("base64"),
-  }));
+  // Each file is read once and scrubbed in memory, so what is packed is what was scrubbed.
+  let hits = 0;
+  const files: PackedFile[] = directories.flatMap(filesUnder).map((file) => {
+    const scrubbed = scrub(readFileSync(file), secrets);
+    hits += scrubbed.hits;
+    return {
+      path: relative(root, file).split(sep).join("/"),
+      mode: lstatSync(file).mode & 0o777,
+      content: scrubbed.bytes.toString("base64"),
+    };
+  });
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, gzipSync(JSON.stringify({ version: 1, files })));
   return hits;

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
@@ -97,6 +97,36 @@ describe("the review action's own steps", () => {
     expect(after.includes(Buffer.from(secret))).toBe(false);
     expect([...after.subarray(0, 5)]).toEqual([0x53, 0x51, 0x00, 0xff, 0x01]);
     expect(after.subarray(5).toString("latin1")).toBe(`x${"*".repeat(secret.length)}y\u0000þ`);
+  });
+
+  it("uploads a snapshot that a live writer cannot change after it was scrubbed", () => {
+    const secret = "sk-ant-eeeeeeeeee";
+    const logs = join(directory, "review");
+    mkdirSync(logs);
+    const log = join(logs, "rql-host.log");
+    writeFileSync(log, `started with ${secret}\n`);
+    // The host keeps its log open for appending, as a served host does.
+    const writer = openSync(log, "a");
+    try {
+      const into = join(directory, "upload");
+      expect(job.snapshot([logs, join(directory, "absent.log")], into, [secret])).toBe(1);
+      writeSync(writer, `later ${secret}\n`);
+      const copy = readFileSync(join(into, "review", "rql-host.log"), "utf8");
+      expect(copy).toBe("started with [REDACTED]\n");
+      // The original is left to its writer.
+      expect(readFileSync(log, "utf8")).toBe(`started with ${secret}\nlater ${secret}\n`);
+    } finally {
+      closeSync(writer);
+    }
+  });
+
+  it("packs a session scrubbed in memory, and leaves the session's own files as they were", () => {
+    const sessions = join(directory, "root", "home", "sessions");
+    mkdirSync(sessions, { recursive: true });
+    const secret = "sk-ant-ffffffffff";
+    writeFileSync(join(sessions, "turn.jsonl"), `{"result": "${secret}"}\n`);
+    expect(job.packState(join(directory, "session.json.gz"), [sessions], [secret], join(directory, "root"))).toBe(1);
+    expect(readFileSync(join(sessions, "turn.jsonl"), "utf8")).toContain(secret);
   });
 
   it("replaces a secret that contains another whole", () => {
