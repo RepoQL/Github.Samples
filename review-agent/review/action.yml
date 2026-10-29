@@ -38,6 +38,14 @@ inputs:
   session-retention-days:
     description: How long a session artifact is kept. A pull request idle for longer starts a new session.
     default: '30'
+  require-repoql:
+    description: >
+      `fail` (the default) fails a first review that made no successful
+      RepoQL call. `warn` publishes it, and the review says what it stood on.
+    default: fail
+  impaired:
+    description: Lines a workflow adds to what the review says it stood on, such as a build that failed. One per line.
+    default: ''
   redact:
     description: More secrets to scrub from everything uploaded, one per line. The usual agent and rql keys are always scrubbed.
     default: ''

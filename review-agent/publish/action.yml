@@ -18,6 +18,12 @@ inputs:
   review-result:
     description: The review job's result, `needs.<job>.result`.
     required: true
+  approve:
+    description: >
+      Post an approving verdict as a GitHub approval. Set false for an
+      advisory reviewer: the verdict is posted as a comment, and the
+      `review/verdict` status still says what it concluded.
+    default: 'true'
   token:
     description: >
       A token with pull-requests, statuses and issues write, and contents

@@ -19,7 +19,7 @@ import { createOpencodeAdapter } from "../harness/opencode.js";
 import * as job from "../job.js";
 import { brief, gather } from "../pull-request.js";
 import { markdown, render } from "../render.js";
-import { adapterName, hostStatus, repository, runUrl, servingPid } from "./common.js";
+import { adapterName, hostStatus, repository, run, runUrl, servingPid, sleep } from "./common.js";
 
 /** The pack's own directory, which holds record.schema.json: the bundle runs from dist/, the sources from src/. */
 export const PACK = (() => {
@@ -28,13 +28,14 @@ export const PACK = (() => {
   return directory;
 })();
 
+/** The adapter for an agent input, running its harness in the checkout under review. */
 export function adapterFor(agent: string, workspace: string): Adapter {
-  if (agent === "claude") return createClaudeAdapter({});
-  if (agent === "codex") return createCodexAdapter({});
-  if (agent === "opencode") return createOpencodeAdapter({});
+  if (agent === "claude") return createClaudeAdapter({ cwd: workspace });
+  if (agent === "codex") return createCodexAdapter({ cwd: workspace });
+  if (agent === "opencode") return createOpencodeAdapter({ cwd: workspace });
   const path = resolve(workspace, agent);
   if (!existsSync(path)) throw new Error(`The agent input is '${agent}'. Use claude, codex, opencode, or the path of an adapter script in the checkout.`);
-  return createExternalAdapter(path, {});
+  return createExternalAdapter(path, { cwd: workspace });
 }
 
 interface Artifact {
@@ -67,6 +68,39 @@ async function restoreSession(github: GitHub, token: string, name: string, direc
   core.info(`Restored ${job.unpackState(join(into, "session.json.gz"), directories)} session file(s) from artifact ${newest.id}.`);
 }
 
+/**
+ * The tool requests the observed host served, from the observer's telemetry. Spans leave the host in batches, so the
+ * last ones are given a moment.
+ */
+/**
+ * The served-request count from `rql query --jsonl`. The rendered form ends with a footer line, so reading the
+ * table's last line would read the footer.
+ */
+export function servedCount(output: string): number {
+  for (const line of output.split(/\r?\n/)) {
+    try {
+      const row: unknown = JSON.parse(line);
+      const served = row && typeof row === "object" ? (row as { served?: unknown }).served : undefined;
+      if (typeof served === "number" && Number.isInteger(served)) return served;
+    } catch {
+      continue;
+    }
+  }
+  return 0;
+}
+
+async function servedRequests(observer: string, rql: string): Promise<number> {
+  const sql =
+    "SELECT coalesce(sum(count), 0)::BIGINT AS served FROM watch.span_stats() WHERE kind = 'server' AND " +
+    "(name LIKE 'POST /repoql.tools.v1.%' OR name LIKE 'POST /repoql.management.v1.CommandService/%')";
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const served = servedCount((await run(rql, ["query", sql, "--jsonl"], { cwd: observer })).stdout);
+    if (served > 0) return served;
+    await sleep(5000);
+  }
+  return 0;
+}
+
 /** Upload, replacing an artifact of the same name made by an earlier attempt of this run. */
 async function upload(name: string, files: string[], root: string, retentionDays: number): Promise<void> {
   const client = new DefaultArtifactClient();
@@ -94,7 +128,8 @@ export async function review(environ: NodeJS.ProcessEnv = process.env): Promise<
   const agent = core.getInput("agent") || "claude";
   const store = core.getInput("session-store") || "artifact";
   const extra = core.getInput("redact");
-  const workspace = environ.GITHUB_WORKSPACE ?? process.cwd();
+  // The checkout the setup action served, which need not be the workspace's root.
+  const workspace = environ.REVIEW_WORKSPACE || environ.GITHUB_WORKSPACE || process.cwd();
   const temp = environ.RUNNER_TEMP ?? "/tmp";
   const folder = join(temp, "review");
   const { full: repo } = repository(environ);
@@ -157,11 +192,31 @@ export async function review(environ: NodeJS.ProcessEnv = process.env): Promise<
     });
     if (code !== 0) throw new Error(`The ${name} agent exited ${code}.`);
 
+    const strict = (core.getInput("require-repoql") || "fail") !== "warn";
+    const impaired = core.getInput("impaired").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
     const gated = job.gate(join(folder, "session.json"));
     if (!gated.ok) {
-      throw new Error("The reviewer finished without a successful repoql tool call: the MCP server failed to start, or the reviewer ignored it. The events file in the review artifact shows which.");
+      const unused = "The reviewer finished without a successful repoql tool call: the MCP server failed to start, or the reviewer ignored it. The events file in the review artifact shows which.";
+      if (strict) throw new Error(unused);
+      core.warning(unused);
+      impaired.push(job.NO_REPOQL);
     }
-    if (gated.impaired) core.warning("The re-review made no successful repoql tool call; the review will say so.");
+    if (gated.impaired) {
+      core.warning("The re-review made no successful repoql tool call; the review will say so.");
+      impaired.push(gated.impaired);
+    }
+    // With an observer, the calls count only when this job's host answered them: the host's own telemetry must
+    // hold the tool requests the reviewer made.
+    if (environ.REVIEW_OBSERVER && job.repoqlCalls(join(folder, "session.json")) > 0) {
+      const served = await servedRequests(environ.REVIEW_OBSERVER, environ.REVIEW_OBSERVER_RQL || "rql");
+      core.info(`tool requests the reviewed host served: ${served}`);
+      if (served === 0) {
+        const other = `The reviewer made repoql calls and the host the setup action launched (pid ${environ.REVIEW_HOST_PID}) served none of them: another host answered the reviewer.`;
+        if (strict) throw new Error(other);
+        core.warning(other);
+        impaired.push("The reviewer's RepoQL calls were answered by a host other than the one serving this checkout.");
+      }
+    }
     // The reviewer's rql finds its host by the directory it runs in, so a host that replaced this job's gives a review
     // of another tree with every call still successful.
     const status = await hostStatus(rql, workspace);
@@ -171,7 +226,7 @@ export async function review(environ: NodeJS.ProcessEnv = process.env): Promise<
     }
 
     const sight = job.sight(join(folder, "session.json"), environ.REVIEW_RQL_VERSION ?? "unknown", model || agent,
-      runUrl(environ), environ.REVIEW_COMMAND || "/review", [gated.impaired ?? ""]);
+      runUrl(environ), environ.REVIEW_COMMAND || "/review", impaired);
     writeFileSync(join(folder, "sight.json"), `${JSON.stringify(sight)}\n`);
     const raw = existsSync(join(folder, "record.json")) ? readFileSync(join(folder, "record.json"), "utf8") : "";
     let record: unknown = null;

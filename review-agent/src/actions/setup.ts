@@ -6,7 +6,7 @@
 import { spawn } from "node:child_process";
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import * as cache from "@actions/cache";
 import * as core from "@actions/core";
@@ -70,22 +70,88 @@ async function installRql(version: string): Promise<string> {
   return join(bin, "rql");
 }
 
-async function serve(rql: string, workspace: string, log: string, token: string, timeoutMinutes: number): Promise<number> {
+/** A host the step launched: its pid, and the `rql watch` that launched it under an observer when there is one. */
+interface Launched {
+  pid: number;
+  watchPid?: number;
+  exited: () => boolean;
+  log: string;
+}
+
+function launch(command: string, args: string[], cwd: string, log: string, env: NodeJS.ProcessEnv): { child: ReturnType<typeof spawn>; exited: () => boolean } {
   // Not this step's process: the host must outlive it, and the post step stops it.
-  const out = openSync(log, "w");
-  const child = spawn(rql, ["serve", "--path", workspace], {
-    cwd: workspace,
-    // The host clones the repositories the reviewer imports, and reads its credential from its own environment.
-    env: { ...process.env, GH_TOKEN: token },
-    detached: true,
-    stdio: ["ignore", out, out],
-  });
+  writeFileSync(log, "");
+  const out = openSync(log, "a");
+  const child = spawn(command, args, { cwd, env, detached: true, stdio: ["ignore", out, out] });
   closeSync(out);
   child.unref();
-  const pid = child.pid ?? 0;
-  let exited = false;
-  child.on("exit", () => (exited = true));
+  let done = false;
+  child.on("exit", () => (done = true));
+  child.on("error", () => (done = true));
+  return { child, exited: () => done };
+}
+
+/** The pid `rql watch` reports for the process it started: `[rql watch] pid: N`. */
+export function watchedPid(log: string): number {
+  return Number(/^\[rql watch\] pid: (\d+)/m.exec(log)?.[1] ?? "0");
+}
+
+/**
+ * Start an observer host on a workspace of its own, then launch the checkout's host under `rql watch` from there, so
+ * the checkout's host exports every span, metric and log line into the observer. A host cannot collect its own
+ * telemetry: its collector accepts only a registered run, and a run can only be registered once the host is up.
+ */
+async function launchObserved(rql: string, observerRql: string, workspace: string, temp: string, env: NodeJS.ProcessEnv): Promise<Launched> {
+  const observer = join(temp, "observer");
+  mkdirSync(observer, { recursive: true });
+  await run(observerRql, ["init", "--path", observer]);
+  const observerLog = join(temp, "rql-observer.log");
+  // Started explicitly: `rql watch` refuses with "No host is running" rather than launching one, and an explicit
+  // serve never idles out under a quiet review.
+  const host = launch(observerRql, ["serve", "--path", observer], observer, observerLog, env);
+  let ready = false;
+  for (let attempt = 0; attempt < 30 && !ready; attempt++) {
+    ready = (await run(observerRql, ["host", "status"], { cwd: observer })).code === 0;
+    if (!ready) {
+      if (host.exited()) break;
+      await sleep(2000);
+    }
+  }
+  if (!ready) {
+    core.info(readFileSync(observerLog, "utf8"));
+    throw new Error("The observer host did not start. Its log is above.");
+  }
+  core.saveState("observer", observer);
+  core.saveState("observer-rql", observerRql);
+  core.exportVariable("REVIEW_OBSERVER", observer);
+  core.exportVariable("REVIEW_OBSERVER_RQL", observerRql);
+  const log = join(temp, "rql-host.log");
+  const watched = launch(observerRql, ["watch", "--cwd", workspace, "--", rql, "serve", "--path", workspace], observer, log, env);
+  let pid = 0;
+  for (let attempt = 0; attempt < 30 && !pid; attempt++) {
+    pid = watchedPid(readFileSync(log, "utf8"));
+    if (!pid) {
+      if (watched.exited()) break;
+      await sleep(1000);
+    }
+  }
+  if (!pid) {
+    core.info(readFileSync(log, "utf8"));
+    throw new Error("rql watch exited before it reported the host it started. Its log is above.");
+  }
+  return { pid, watchPid: watched.child.pid ?? 0, exited: watched.exited, log };
+}
+
+function launchPlain(rql: string, workspace: string, temp: string, env: NodeJS.ProcessEnv): Launched {
+  const log = join(temp, "rql-host.log");
+  const host = launch(rql, ["serve", "--path", workspace], workspace, log, env);
+  return { pid: host.child.pid ?? 0, exited: host.exited, log };
+}
+
+async function serve(launched: Launched, rql: string, workspace: string, timeoutMinutes: number): Promise<void> {
+  const { pid } = launched;
   core.saveState("host-pid", String(pid));
+  if (launched.watchPid) core.saveState("watch-pid", String(launched.watchPid));
   core.exportVariable("REVIEW_HOST_PID", String(pid));
 
   // The host this step launches is the only one it accepts, told by its pid: any host answers a status call for the
@@ -94,9 +160,9 @@ async function serve(rql: string, workspace: string, log: string, token: string,
   for (let attempt = 0; attempt < 90; attempt++) {
     status = await hostStatus(rql, workspace);
     if (servingPid(status) === String(pid)) break;
-    if (exited) {
-      core.info(readFileSync(log, "utf8"));
-      throw new Error("rql serve exited before it answered for the checkout. Its log is above.");
+    if (launched.exited()) {
+      core.info(readFileSync(launched.log, "utf8"));
+      throw new Error("The host exited before it answered for the checkout. Its log is above.");
     }
     await sleep(2000);
   }
@@ -123,7 +189,20 @@ async function serve(rql: string, workspace: string, log: string, token: string,
     status = await hostStatus(rql, workspace);
   }
   core.info(status);
-  return pid;
+  if (servingPid(status) !== String(pid)) {
+    throw new Error(`The host serving the checkout changed while the index warmed: the step launched pid ${pid}, and pid ${servingPid(status) || "none"} answers now.`);
+  }
+}
+
+/** A checkout the workflow made itself must be the head under review, with the base branch to diff against. */
+async function verifyCheckout(workspace: string, head: string): Promise<void> {
+  if (!existsSync(join(workspace, ".git"))) {
+    throw new Error(`There is no git checkout at ${workspace}. Check the pull request out there first, or leave checkout on.`);
+  }
+  const actual = (await run("git", ["rev-parse", "HEAD"], { cwd: workspace })).stdout.trim();
+  if (actual !== head) throw new Error(`The checkout at ${workspace} is at ${actual || "no commit"}, not the pull request's head ${head}.`);
+  const shallow = (await run("git", ["rev-parse", "--is-shallow-repository"], { cwd: workspace })).stdout.trim();
+  if (shallow === "true") throw new Error(`The checkout at ${workspace} is shallow. Check it out with fetch-depth: 0: the reviewer diffs against the base and reads history.`);
 }
 
 export async function setup(environ: NodeJS.ProcessEnv = process.env): Promise<void> {
@@ -131,7 +210,9 @@ export async function setup(environ: NodeJS.ProcessEnv = process.env): Promise<v
   const prInput = core.getInput("pr");
   const command = core.getInput("command") || "/review";
   const cacheIndex = core.getInput("cache-index") !== "false";
-  const workspace = environ.GITHUB_WORKSPACE ?? process.cwd();
+  const ownCheckout = core.getInput("checkout") !== "false";
+  const root = environ.GITHUB_WORKSPACE ?? process.cwd();
+  const workspace = resolve(root, core.getInput("path") || ".");
   const temp = join(environ.RUNNER_TEMP ?? "/tmp", "review");
   const { full: repo } = repository(environ);
   mkdirSync(temp, { recursive: true });
@@ -159,19 +240,26 @@ export async function setup(environ: NodeJS.ProcessEnv = process.env): Promise<v
   // Read by the review action, so a workflow wires nothing between the two.
   for (const [name, value] of Object.entries({
     REVIEW_PR: String(pr), REVIEW_HEAD_SHA: head, REVIEW_BASE_REF: base, REVIEW_FRESH: String(fresh), REVIEW_COMMAND: command,
+    REVIEW_WORKSPACE: workspace,
   })) core.exportVariable(name, value);
 
-  const server = environ.GITHUB_SERVER_URL ?? "https://github.com";
-  await core.group("Check out the pull request", () => checkout(workspace, server, repo, head, token));
+  if (ownCheckout) {
+    const server = environ.GITHUB_SERVER_URL ?? "https://github.com";
+    await core.group("Check out the pull request", () => checkout(workspace, server, repo, head, token));
+    core.saveState("checked-out", "true");
+  } else {
+    await verifyCheckout(workspace, head);
+  }
   await git(["rev-parse", "--verify", "--quiet", `origin/${base}`], workspace);
   core.saveState("workspace", workspace);
 
+  const index = join(workspace, INDEX);
   const key = `repoql-index-${environ.RUNNER_OS}-${environ.GITHUB_RUN_ID}-${environ.GITHUB_RUN_ATTEMPT || "1"}`;
   core.saveState("index-key", cacheIndex ? key : "");
   if (cacheIndex) {
     await core.group("Restore the RepoQL index", async () => {
       try {
-        const restored = await cache.restoreCache([INDEX], key, [`repoql-index-${environ.RUNNER_OS}-`]);
+        const restored = await cache.restoreCache([index], key, [`repoql-index-${environ.RUNNER_OS}-`]);
         core.info(restored ? `Restored the index from ${restored}.` : "No cached index; the review indexes cold.");
       } catch (error) {
         core.warning(`The RepoQL index could not be restored: ${String(error)}`);
@@ -179,16 +267,30 @@ export async function setup(environ: NodeJS.ProcessEnv = process.env): Promise<v
     });
   }
 
-  const rql = await core.group("Install rql", () => installRql(core.getInput("rql-version")));
+  // A binary the workflow built or chose is served as it is. The released rql is installed when none is given, and
+  // as the observer, which is a host of its own.
+  const given = core.getInput("rql");
+  const observe = core.getInput("observe") === "true";
+  const installed = !given || observe ? await core.group("Install rql", () => installRql(core.getInput("rql-version"))) : "";
+  const rql = given ? resolve(root, given) : installed;
+  if (!existsSync(rql)) throw new Error(`The rql input names ${rql}, which does not exist.`);
   const version = (await run(rql, ["--version"])).stdout.trim();
+  if (!version) throw new Error(`${rql} --version printed nothing; it is not an rql that can serve the review.`);
   core.info(version);
   core.setOutput("rql", rql);
   core.exportVariable("REVIEW_RQL", rql);
-  core.exportVariable("REVIEW_RQL_VERSION", version);
+  core.exportVariable("REVIEW_RQL_VERSION", core.getInput("rql-label") || version);
   core.saveState("rql", rql);
 
   const timeout = Number(core.getInput("ready-timeout-minutes") || "30");
-  await core.group("Serve the checkout", () => serve(rql, workspace, join(temp, "rql-host.log"), token, timeout));
+  // The host clones the repositories the reviewer imports, and reads its credential from its own environment.
+  const env = { ...process.env, GH_TOKEN: token };
+  await core.group("Serve the checkout", async () => {
+    const launched = observe
+      ? await launchObserved(rql, installed, workspace, temp, env)
+      : launchPlain(rql, workspace, temp, env);
+    await serve(launched, rql, workspace, timeout);
+  });
 }
 
 async function stopped(pid: number, seconds: number): Promise<boolean> {
@@ -209,26 +311,34 @@ async function stopped(pid: number, seconds: number): Promise<boolean> {
   return !alive();
 }
 
-/** Stop the host gracefully, so the index on disk is whole, then keep it; take the checkout's credential away. */
+/**
+ * Stop the host gracefully, so the index on disk is whole, then keep it; stop the observer; take the checkout's
+ * credential away. Only what this action started or set is touched.
+ */
 export async function setupPost(): Promise<void> {
   const workspace = core.getState("workspace");
   const pid = Number(core.getState("host-pid") || "0");
+  // SIGTERM to `rql watch` shuts the host it started down gracefully, which lets it flush the embedding cache.
+  const watchPid = Number(core.getState("watch-pid") || "0");
   const key = core.getState("index-key");
   let whole = true;
+  if (watchPid > 0) await stopped(watchPid, 45);
   if (pid > 0 && !(await stopped(pid, 60))) {
     core.warning("The rql host did not stop within a minute; its index is not cached.");
     whole = false;
   }
-  if (whole && key && workspace && existsSync(join(workspace, INDEX))) {
+  const observer = core.getState("observer");
+  if (observer) await run(core.getState("observer-rql") || "rql", ["host", "stop"], { cwd: observer });
+  const index = workspace ? join(workspace, INDEX) : "";
+  if (whole && key && index && existsSync(index)) {
     try {
-      process.chdir(workspace);
-      await cache.saveCache([INDEX], key);
+      await cache.saveCache([index], key);
       core.info(`Kept the RepoQL index as ${key}.`);
     } catch (error) {
       core.warning(`The RepoQL index could not be cached: ${String(error)}`);
     }
   }
-  if (workspace && existsSync(join(workspace, ".git"))) {
+  if (core.getState("checked-out") === "true" && workspace && existsSync(join(workspace, ".git"))) {
     const server = process.env.GITHUB_SERVER_URL ?? "https://github.com";
     await run("git", ["config", "--local", "--unset-all", `http.${server}/.extraheader`], { cwd: workspace });
   }

@@ -14,6 +14,29 @@ inputs:
   command:
     description: The comment that asks for a review. Only used to read `<command> fresh`.
     default: /review
+  path:
+    description: Where the pull request is checked out, relative to the workspace. The review action reviews there too.
+    default: '.'
+  checkout:
+    description: >
+      Check the pull request's head out at path, with every branch and the
+      whole history. Set false to check it out yourself (with submodules, LFS,
+      or steps of your own before serving); the head must then be at path,
+      with full history.
+    default: 'true'
+  rql:
+    description: An rql binary to serve the checkout with, such as one a step before built. Empty installs the released rql.
+    default: ''
+  rql-label:
+    description: How the review names the rql it stood on, such as "built from this PR". Defaults to its version.
+    default: ''
+  observe:
+    description: >
+      Serve the checkout under a second rql host that collects its telemetry,
+      and require that this job's host served the reviewer's RepoQL calls.
+      The review action reads the telemetry; REVIEW_OBSERVER names the
+      observer's workspace for steps of your own.
+    default: 'false'
   rql-version:
     description: The rql release to install, such as 1.14.2. Defaults to the latest. An rql already on PATH is used as it is.
     default: ''

@@ -49,6 +49,14 @@ function readSessionSight(path: string): SessionSight | null {
 export const NO_REPOQL_ON_RE_REVIEW =
   "The reviewer made no RepoQL call in this review, so it rests on what the reviewer already knew and on plain file reads.";
 
+export const NO_REPOQL = "The reviewer made no successful RepoQL call, so this review rests on plain file reads alone.";
+
+/** The successful repoql calls the adapter counted for the published turn. */
+export function repoqlCalls(sessionSight: string): number {
+  const calls = readSessionSight(sessionSight)?.repoql_calls;
+  return typeof calls === "number" && Number.isInteger(calls) ? calls : 0;
+}
+
 /** A first review without RepoQL is no review; a re-review without it is published and says so. */
 export function gate(sessionSight: string): { ok: boolean; impaired: string | null } {
   const sight = readSessionSight(sessionSight);

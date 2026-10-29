@@ -49,6 +49,14 @@ async function sayNoReview(github: GitHub, pr: string, headSha: string, environ:
   }
 }
 
+/**
+ * The plan as an advisory review: an approval is posted as a comment, so the reviewer never counts toward a merge.
+ * The `review/verdict` status still says what the reviewer concluded.
+ */
+export function withoutApproval<T extends { event: string }>(plan: T): T {
+  return plan.event === "APPROVE" ? { ...plan, event: "COMMENT" } : plan;
+}
+
 export async function publish(environ: NodeJS.ProcessEnv = process.env): Promise<void> {
   const pr = core.getInput("pr", { required: true });
   const result = core.getInput("review-result", { required: true });
@@ -64,7 +72,8 @@ export async function publish(environ: NodeJS.ProcessEnv = process.env): Promise
     const { artifact } = await client.getArtifact(name);
     const into = join(environ.RUNNER_TEMP ?? "/tmp", "handoff");
     await client.downloadArtifact(artifact.id, { path: into });
-    const plan = JSON.parse(readFileSync(join(into, "plan.json"), "utf8"));
+    const planned = JSON.parse(readFileSync(join(into, "plan.json"), "utf8"));
+    const plan = core.getInput("approve") === "false" ? withoutApproval(planned) : planned;
     const code = await publishPlan(github, repo, Number(pr), plan, { environ, emit: (line: string) => core.info(line) });
     if (code !== 0) throw new Error(`Publishing the review exited ${code}.`);
   } catch (error) {
@@ -112,7 +121,7 @@ export async function archive(environ: NodeJS.ProcessEnv = process.env): Promise
   const pr = core.getInput("pr", { required: true });
   const repo = repository(environ).full;
   try {
-    await adapterFor(agent, environ.GITHUB_WORKSPACE ?? process.cwd()).archive(repo, Number(pr));
+    await adapterFor(agent, environ.REVIEW_WORKSPACE || environ.GITHUB_WORKSPACE || process.cwd()).archive(repo, Number(pr));
   } catch (error) {
     core.warning(`Nothing on the runner was archived: ${String(error)}`);
   }

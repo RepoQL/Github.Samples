@@ -61,6 +61,7 @@ Most teams only change the first row.
 |-----------|------|
 | What the reviewer knows about your codebase | Your repository's own agent instructions (CLAUDE.md, AGENTS.md) and RepoQL concepts. The reviewer reads them. The `instructions` input adds text to the reviewer's prompt. |
 | The agent, the model, the runner, the triggers | The workflow: `agent`, `model` and `agent-args` on the `review` action. |
+| How the change is checked out, or which rql serves it | `setup`'s `checkout: false` with a checkout of your own, and its `rql` input. Steps between them run before the host starts. |
 | The words the reviewer is given | `prompts`: a directory with your own `first.md`, `again.md` and `environment.md`, starting from [the shipped ones](prompts/). |
 | How the reviewer thinks | `kata`: a directory with your own `SKILL.md` and `record.md`, starting from [the shipped kata](kata/). |
 
@@ -75,9 +76,27 @@ Most teams only change the first row.
 | `session-store` | `artifact` | `artifact` keeps the session as a workflow artifact per pull request, scrubbed of credentials, so a push, a comment and a reply all continue one session. `runner` keeps it in the runner's home directory, for self-hosted runners. `none` starts a new session every time |
 | `session-retention-days` | `30` | How long a session artifact is kept |
 | `kata`, `prompts` | the shipped ones | Directories that replace them |
+| `require-repoql` | `fail` | `fail` fails a first review that made no successful RepoQL call. `warn` publishes it and says so |
+| `impaired` | none | Lines your workflow adds to what the review says it stood on, such as a build that failed |
 | `redact` | none | More secrets to scrub from the uploaded plan, one per line |
 
-The `setup` action takes `pr`, `fresh`, `command` (the comment that asks for a review, `/review` by default), `rql-version`, `cache-index` and `ready-timeout-minutes`.
+### Inputs of the setup action
+
+| Input | Default | Meaning |
+|-------|---------|---------|
+| `pr` | the event's pull request | The pull request to review |
+| `fresh` | `false` | Review with a new session. A `<command> fresh` comment also asks for one |
+| `command` | `/review` | The comment that asks for a review |
+| `path` | `.` | Where the pull request is checked out, relative to the workspace. The review runs there too |
+| `checkout` | `true` | Check the head out with full history. Set `false` to check it out yourself, with submodules, LFS, or steps of your own; the head must then be at `path` with `fetch-depth: 0` |
+| `rql` | the released rql | A binary to serve the checkout with, such as one an earlier step built |
+| `rql-label` | its version | How the review names that rql, such as `built from this PR` |
+| `observe` | `false` | Serve under a second host that collects the first's telemetry, and require that this job's host served the reviewer's RepoQL calls |
+| `rql-version` | latest | The release to install when no `rql` is given |
+| `cache-index` | `true` | Keep the RepoQL index in the Actions cache. Turn it off on a self-hosted runner that keeps its workspace |
+| `ready-timeout-minutes` | `30` | How long to wait for semantic search |
+
+`publish` takes `approve: false` for an advisory reviewer. An approving verdict is then posted as a comment, so the reviewer never counts toward a merge, and the `review/verdict` status still says what it concluded.
 
 ### Agents and their sandboxes
 
@@ -149,7 +168,7 @@ npm run check
 ## Limits
 
 - **Pull requests from forks are not reviewed.** The reviewer runs the change's code with the job's credentials.
-- **The reviewer's approval is a real GitHub approval,** posted by `github-actions[bot]`. Nothing merges on it unless your ruleset says so. Require the `review/verdict` status if you want the reviewer's verdict to gate merging.
+- **The reviewer's approval is a real GitHub approval,** posted by `github-actions[bot]`, unless `publish` has `approve: false`. When GitHub refuses it, as it does where Actions may not approve, the review is posted as a comment instead. Nothing merges on it unless your ruleset says so. Require the `review/verdict` status if you want the reviewer's verdict to gate merging.
 - **The RepoQL index lives in the Actions cache,** which holds 10 GB per repository and is scoped to the ref a run started on. A review started by a comment or a reply runs on the default branch, so it can only restore an index saved there, and may index cold.
 - **A session artifact is readable by anyone who can read the repository's runs.** It is scrubbed of the agent, rql and GitHub credentials and of anything in `redact`, but it holds the code and output the reviewer saw.
 - **Importing a private repository fails,** because the job's token reads only this repository and public ones. The reviewer lists what it could not check.
